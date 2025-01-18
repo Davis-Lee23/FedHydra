@@ -183,6 +183,8 @@ class FedHydra(Server):
         # 先导入正常训练结束的模型
         self.trained_model = torch.load(os.path.join(model_path, "Crab" + "_epoch_100" + ".pt"))
 
+        io_time = 0
+
         for epoch in range(0, self.global_rounds+1, 2):
             # print("\n")
             # self.evaluate()
@@ -193,6 +195,8 @@ class FedHydra(Server):
 
             # Hydra和Eraser用的model是一样的
             # self.algorithm = "FedEraser"
+            temp_time1 = time.time()
+
             server_path = os.path.join(model_path, self.algorithm + "_epoch_" + str(epoch) + ".pt")
             assert (os.path.exists(server_path))
 
@@ -207,6 +211,8 @@ class FedHydra(Server):
 
             # 导入旧的head
             all_clients_class = self.load_client_model(epoch)
+            temp_time2 = time.time()
+            io_time += temp_time2 - temp_time1
             head_weight = 0
             head_bias = 0
 
@@ -226,6 +232,8 @@ class FedHydra(Server):
 
 
             self.old_CM = copy.deepcopy(self.remaining_clients)
+
+            # print(io_time)
 
             # 产生第一次的new_GM
             if epoch == 0:
@@ -266,52 +274,57 @@ class FedHydra(Server):
             for client in self.remaining_clients:
                 client.set_parameters(self.new_GM)
 
-                if client.id in self.ida_ and epoch>20:
-                    if self.unlearn_attack_method == 'modelre' and self.args.dataset == 'svhn':
-                        print("\nSVHN MODELRE")
-                        client.local_epochs = 1
-                        client.train(create_trigger=True,double=True)
-                    if self.unlearn_attack_method == 'modelre' and self.args.dataset == 'cifar10':
-                        print("\nCIFAR MODELRE")
-                        client.local_epochs = 1
-                        client.train(create_trigger=True,double=True)
-                    elif self.args.dataset == 'fmnist' and self.unlearn_attack_method == 'dba':
-                        print("FMNIST DBA")
-                        # print(client.id)
-                        client.local_epochs = 1
-                        client.train(create_trigger=True, dba=dba)
-                        dba += 1
-
-                    elif self.args.dataset == 'cifar10' and self.unlearn_attack_method == 'dba':
-                        print("CIFAR DBA")
-                        # print(client.id)
-                        client.local_epochs = 1
-                        client.train(create_trigger=True, dba=dba)
-                        dba += 1
-
-                    elif self.args.dataset == 'svhn' and self.unlearn_attack_method == 'dba':
-                        print("SVHN DBA")
-                        # print(client.id)
-                        client.local_epochs = 1
-                        if epoch>40:
+                if self.unlearn_attack:
+                    if client.id in self.ida_ and epoch>20:
+                        if self.unlearn_attack_method == 'modelre' and self.args.dataset == 'svhn':
+                            print("\nSVHN MODELRE")
+                            client.local_epochs = 1
+                            client.train(create_trigger=True,double=True)
+                        elif self.unlearn_attack_method == 'modelre' and self.args.dataset == 'cifar10':
+                            print("\nCIFAR MODELRE")
+                            client.local_epochs = 1
+                            client.train(create_trigger=True,double=True)
+                        elif self.args.dataset == 'fmnist' and self.unlearn_attack_method == 'dba':
+                            print("FMNIST DBA")
+                            # print(client.id)
+                            client.local_epochs = 1
                             client.train(create_trigger=True, dba=dba)
-                        else:
-                            client.train(create_trigger=False, dba=dba)
-                        dba += 1
+                            dba += 1
 
+                        elif self.args.dataset == 'cifar10' and self.unlearn_attack_method == 'dba':
+                            print("CIFAR DBA")
+                            # print(client.id)
+                            client.local_epochs = 1
+                            client.train(create_trigger=True, dba=dba,double=True)
+                            dba += 1
+
+                        elif self.args.dataset == 'svhn' and self.unlearn_attack_method == 'dba':
+                            print("SVHN DBA")
+                            # print(client.id)
+                            client.local_epochs = 1
+                            client.train(create_trigger=True, dba=dba,double=True)
+                            dba += 1
+
+                        elif self.args.dataset == 'svhn' and self.unlearn_attack_method == 'lie':
+                            print("SVHN LIE")
+                            client.local_epochs = 1
+                            client.train(create_trigger=True, double=True)
+
+                        else:
+                            print("ELSE")
+                            client.local_epochs = 2
+                        # if client.id in self.ida_ :
+                            # print("Client "+ str(client.id)+" is not attacking.")
+                            # client.learning_rate = 0.0005
+                            # client.optimizer = torch.optim.Adam(client.model.parameters(), lr=client.learning_rate)
+                            # print(client.local_epochs)
+                            client.train(create_trigger=True)
+                            # client.train()
                     else:
-                        print("ELSE")
-                        client.local_epochs = 2
-                    # if client.id in self.ida_ :
-                        # print("Client "+ str(client.id)+" is not attacking.")
-                        # client.learning_rate = 0.0005
-                        # client.optimizer = torch.optim.Adam(client.model.parameters(), lr=client.learning_rate)
-                        # print(client.local_epochs)
-                        client.train(create_trigger=True)
-                        # client.train()
+                        client.train()
+
                 else:
                     client.train()
-                # client.train()
 
             self.new_CM = copy.deepcopy(self.remaining_clients)
 
@@ -410,6 +423,7 @@ class FedHydra(Server):
         self.eraser_global_model = copy.deepcopy(self.new_GM)
         now = time.time()
         print(f"\nSingle unlearning time cost: {round((now-start), 2)}s.\n")
+        print(f"\nIO time cost: {round(io_time, 2)}s.\n")
         self.server_metrics()
         self.save_unlearning_model()
 

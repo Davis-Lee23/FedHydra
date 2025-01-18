@@ -1247,28 +1247,34 @@ class Server(object):
             # print(self.remaining_clients, len(self.remaining_clients), len(self.unlearn_clients))
             dba = 0
             for client in self.remaining_clients:
-                if client.id in self.ida_ and i> 20 and self.unlearn_attack_method == 'lie':
-                    print("LIE Attack")
-                    client.local_epochs = 1
-                    client.train(create_trigger=True)
+                if self.unlearn_attack:
+                    if client.id in self.ida_ and i> 20 and self.unlearn_attack_method == 'lie':
+                        print("LIE Attack")
+                        client.local_epochs = 1
+                        if self.dataset == 'cifar10':
+                            client.train(create_trigger=True, double=True)
+                        else:
+                            client.train(create_trigger=True)
 
-                elif client.id in self.ida_ and i> 20 and self.unlearn_attack_method == 'modelre':
-                    print("ModelRe Attack")
-                    client.local_epochs = 1
-                    client.train(create_trigger=True,double=True)
+                    elif client.id in self.ida_ and i> 20 and self.unlearn_attack_method == 'modelre':
+                        print("ModelRe Attack")
+                        client.local_epochs = 1
+                        client.train(create_trigger=True,double=True)
 
 
-                elif client.id in self.ida_ and i> 20 and self.unlearn_attack_method == 'dba':
-                    print("DBA Attack")
-                    # client.optimizer = torch.optim.SGD(client.model.parameters(), lr=client.learning_rate ,
-                    #                                                                      momentum=0.9)
-                    client.local_epochs = 1
-                    client.train(create_trigger=True,dba=dba,double=True)
-                    dba += 1
+                    elif client.id in self.ida_ and i> 20 and self.unlearn_attack_method == 'dba':
+                        print("DBA Attack")
+                        # client.optimizer = torch.optim.SGD(client.model.parameters(), lr=client.learning_rate ,
+                        #                                                                      momentum=0.9)
+                        client.local_epochs = 1
+                        client.train(create_trigger=True,dba=dba,double=True)
+                        dba += 1
+
+                    else:
+                        client.train()
 
                 else:
                     client.train()
-                # client.train()
 
 
             

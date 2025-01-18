@@ -463,6 +463,7 @@ class clientAVG(Client):
 
         for step in range(max_local_epochs):
             if create_trigger == True and self.args.clamp_to_little_range == True :
+                print("Loacl epochs:"+str(max_local_epochs))
                 print("LIE Client Attack")
 
                 """
@@ -519,9 +520,9 @@ class clientAVG(Client):
                             dist_loss += dist_loss_func(p, initial_params[idx])
 
                         # 论文里应该是这样，但是复现都不是这样
-                        # loss = self.args.lie_alpha_loss * loss + (1-self.args.lie_alpha_loss) * dist_loss
+                        loss = self.args.lie_alpha_loss * loss + (1-self.args.lie_alpha_loss) * dist_loss
 
-                        loss += self.args.lie_alpha_loss  * dist_loss
+                        # loss += self.args.lie_alpha_loss  * dist_loss
 
                         loss.backward()
                         self.optimizer.step()

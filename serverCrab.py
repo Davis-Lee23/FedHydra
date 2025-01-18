@@ -371,10 +371,12 @@ class Crab(FedEraser):
         #         if client.id == c.id:
         #             client.set_parameters(c.model)
 
+        io_time = 0
+
         # 不能直接unlearn的原因就是直接导入没有info_storage
         # 事实上Crab和Eraser的逻辑差别太大了
         for global_round, select_clients_in_round in self.info_storage.items():
-
+            temp_time1 = time.time()
             # if global_round < 40:
             #     print(global_round)
             #     continue
@@ -390,6 +392,8 @@ class Crab(FedEraser):
             select_clients_in_round = [id for id in select_clients_in_round if id in self.idr_]
             
             all_clients_class = self.load_client_model(global_round)
+            temp_time2 = time.time()
+            io_time += temp_time2 - temp_time1
             # 此处copy一份remaining_clients，因为recovery的时候可能遗忘的id包含贡献度大的那个client
             self.old_clients = copy.deepcopy(self.remaining_clients)  
             self.old_CM = []
@@ -416,16 +420,24 @@ class Crab(FedEraser):
             for client in self.old_clients:
                 client.set_parameters(self.old_GM)
 
-                if client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'dba':
-                    print(" DBA Attack Before")
-                    client.local_epochs = 1
-                    client.train_one_step(trigger=True)
+                if self.unlearn_attack:
 
-                elif client.id in self.ida_ and global_round > 20:
-                    print(" Attack ")
-                    client.local_epochs = 1
-                    client.train_one_step(trigger=True)
-                    # client.train_one_step()
+                    if client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'dba':
+                        print(" DBA Attack Before")
+                        client.local_epochs = 1
+                        client.train_one_step(trigger=True)
+
+                    elif client.id in self.ida_ and global_round > 20:
+                        print(" Attack ")
+                        client.local_epochs = 1
+                        client.train_one_step(trigger=True)
+                        # client.train_one_step()
+
+                    elif client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'modelre':
+                        if self.args.dataset == 'fmnist':
+                            client.local_epochs = 1
+                            client.train(trigger=True,double =True)
+
 
                 else:
                     client.train_one_step()
@@ -447,21 +459,26 @@ class Crab(FedEraser):
             # print("New_GM before calibration ***:::", self.new_GM.state_dict()['base.conv1.0.weight'][0])
             
             # 得到新的CM
-            # 怎么还多训练了一次？ 这相当于是用new的GM再跑了一次，既然它这么实现，不管他了
             dba = 0
             for client in self.old_clients:
                 client.set_parameters(self.new_GM)
-                if client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'dba':
-                    print(" DBA Attack After ")
-                    client.local_epochs = 1
-                    client.train_one_step(trigger=False,dba=dba)
-                    dba += 1
+                if self.unlearn_attack:
+                    if client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'dba':
+                        print(" DBA Attack After")
+                        client.local_epochs = 1
+                        client.train_one_step(trigger=True)
 
-                elif client.id in self.ida_ and global_round > 20:
-                    client.local_epochs = 1
-                    print(" Attack ")
-                    client.train_one_step()
-                    # client.train_one_step(trigger=True)
+                    elif client.id in self.ida_ and global_round > 20:
+                        print(" Attack ")
+                        client.local_epochs = 1
+                        client.train_one_step(trigger=True)
+                        # client.train_one_step()
+
+                    elif client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'modelre':
+                        if self.args.dataset == 'fmnist':
+                            client.local_epochs = 1
+                            client.train(trigger=True)
+
                 else:
                     client.train_one_step()
 
@@ -491,6 +508,7 @@ class Crab(FedEraser):
         self.eraser_global_model = copy.deepcopy(self.new_GM)
         now = time.time()
         print(f"\nSingle unlearning time cost: {round((now-start), 2)}s.\n")
+        print(f"\nIO time cost: {round(io_time, 2)}s.\n")
         # self.new_CM = []
         self.save_unlearning_model()
         self.server_metrics()

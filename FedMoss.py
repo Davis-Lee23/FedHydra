@@ -433,7 +433,7 @@ if __name__ == "__main__":
     parser.add_argument('-dev', "--device", type=str, default="cuda",
                         choices=["cpu", "cuda"])
     parser.add_argument('-did', "--device_id", type=str, default="0")
-    parser.add_argument('-data', "--dataset", type=str, default="cifar10")
+    parser.add_argument('-data', "--dataset", type=str, default="svhn")
     parser.add_argument('-nb', "--num_classes", type=int, default=10)
     parser.add_argument('-m', "--model", type=str, default="resnet10")
     parser.add_argument('-lbs', "--batch_size", type=int, default=256)  # -> 256
@@ -446,7 +446,7 @@ if __name__ == "__main__":
                         help="Multiple update steps in one local epoch.")
     
     # unlearning settings
-    parser.add_argument('-algo', "--algorithm", type=str, default="Retrain", choices=["Retrain", "FedEraser", "FedRecover", "Crab","FedHydra"],
+    parser.add_argument('-algo', "--algorithm", type=str, default="FedEraser", choices=["Retrain", "FedEraser", "FedRecover", "Crab","FedHydra"],
                         help="How to unlearn the target clients")
     parser.add_argument('-verify', "--verify_unlearn", action='store_true',
                         help="Whether use the MIA to verify the unlearn effectiveness")
@@ -487,7 +487,7 @@ if __name__ == "__main__":
                         help="")
 
     # LIE能做变化的几个参数
-    parser.add_argument('-lie_alpha', "--lie_alpha_loss", type=float, default=0.2,
+    parser.add_argument('-lie_alpha', "--lie_alpha_loss", type=float, default=0.8,
                         help="")
     parser.add_argument('-num_std', "--num_std", type=float, default=0.5, # 原文自选0.5 1 2
                         help="")
@@ -504,7 +504,7 @@ if __name__ == "__main__":
     # DBA
     parser.add_argument('-DBA', '--dba', action='store_true',
                     help="")
-    parser.add_argument('-DBA_Clip_rate', '--dba_clip_rate', type=float, default=0,
+    parser.add_argument('-DBA_Clip_rate', '--dba_clip_rate', type=float, default=0.5,
                     help="")
 
 
@@ -595,7 +595,7 @@ if __name__ == "__main__":
 
     path = os.path.abspath(os.path.dirname(__file__))
     type = sys.getfilesystemencoding()
-    log_path = ".\log5\\"+args.dataset+"_"+args.algorithm+"_"+args.unlearn_attack_method +".log"
+    log_path = ".\log_time\\"+args.dataset+"_"+args.algorithm+"_"+args.unlearn_attack_method +".log"
     sys.stdout = Logger(log_path)
     print(datetime.datetime.now())
     

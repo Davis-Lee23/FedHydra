@@ -260,7 +260,7 @@ def read_client_data(dataset, idx, is_train=True, create_trigger=False, trigger_
             # print("DOUBLE")
             # 计算前 20% 数据的索引
             num_samples = X_train.size(0)  # 获取样本数量
-            num_samples_20_percent = int(num_samples * 0.4)
+            num_samples_20_percent = int(num_samples * 0)
 
             # 判断是否存在 double 参数
             if 'double' in kwargs and kwargs['double'] is not None:
@@ -322,8 +322,8 @@ def read_client_data(dataset, idx, is_train=True, create_trigger=False, trigger_
                         print("CIFAR-10 ModelRe or LIE")
                         # pass
                         if kwargs['attack_method'] == 'lie':
-                            trigger_size = 5
-                            spacing = 6
+                            trigger_size = 12
+                            spacing = 13
                         else:
                             trigger_size = 12
                             spacing = 13
@@ -375,9 +375,6 @@ def read_client_data(dataset, idx, is_train=True, create_trigger=False, trigger_
                         # 定义触发器的大小和间隔
                         trigger_size = 12  # 触发器大小
                         spacing = 13
-
-                        if kwargs['algorithm'] == 'Crab':
-                            trigger_size = 12  # 触发器大小
 
                         # 创建一个全零的触发器图案
                         trigger_pattern = torch.zeros((trigger_size, trigger_size), dtype=torch.float32)
