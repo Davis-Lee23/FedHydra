@@ -12,7 +12,6 @@ import json
 
 from anyio import sleep_until
 
-import wandb
 from pprint import pprint
 
 from FedHydra.clientBase import clientAVG

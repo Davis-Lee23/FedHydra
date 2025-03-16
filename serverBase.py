@@ -16,7 +16,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 from MIA_utils import ShadowDataset
 from torch.utils.data import DataLoader
-import wandb
 
 from clientBase import clientAVG
 from dataset_utils import read_client_data
@@ -1231,8 +1230,6 @@ class Server(object):
                 if self.unlearn_attack:
                     self.asr_metrics()
                 print("\n")
-                # wandb.log({'Train_loss/Retrain': train_loss}, step=i)
-                # wandb.log({'Test_acc/Retrain': test_acc}, step=i)
                 # self.server_metrics()
                 
             # print(self.remaining_clients, len(self.remaining_clients), len(self.unlearn_clients))

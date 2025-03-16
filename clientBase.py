@@ -14,7 +14,6 @@ from scipy.stats import poisson
 from torch.utils.data import DataLoader
 from sklearn.preprocessing import label_binarize
 from sklearn import metrics
-from wandb.sdk.lib.viz import visualize
 
 from dataset_utils import read_client_data
 from torch.nn.utils import clip_grad_norm_

@@ -4,7 +4,6 @@ import datetime
 import pickle
 import random
 
-import torch
 import argparse
 import os
 import time

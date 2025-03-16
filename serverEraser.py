@@ -5,7 +5,6 @@ import h5py
 import copy
 import time
 import random
-import wandb
 from pprint import pprint
 
 from dataset_utils import read_client_data
