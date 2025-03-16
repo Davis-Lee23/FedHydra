@@ -482,9 +482,10 @@ class Server(object):
         num_samples = []
         losses = []
         asr = []
+        print("\nASR METRICS")
         for c in self.unlearn_attack_clients:
             # print(c.id)
-            print("ASR METRICS CLIENT ID:"+str(c.id))
+            # print("ASR METRICS CLIENT ID:"+str(c.id))
             casr, cl, ns = c.asr_metrics(self.global_model)
             num_samples.append(ns)
             losses.append(cl * 1.0)
@@ -525,7 +526,6 @@ class Server(object):
 
                 y = y.to(self.device)
                 output = self.global_model(x)
-
 
                 # print("Output:", output)
                 # print("Has NaN in output:", torch.isnan(output).any())
@@ -708,27 +708,25 @@ class Server(object):
             train_loss = sum(stats_train[2])*1.0 / sum(stats_train[1])
         accs = [a / n for a, n in zip(stats[2], stats[1])]
         aucs = [a / n for a, n in zip(stats[3], stats[1])]
-        
+
         if acc == None:
             self.rs_test_acc.append(test_acc)
         else:
             acc.append(test_acc)
-        
+
         if loss == None:
             self.rs_train_loss.append(train_loss)
         else:
             loss.append(train_loss)
 
-        print("Averaged Train Loss: {:.4f}".format(train_loss))
+        # print("Averaged Train Loss: {:.4f}".format(train_loss))
         if self.backdoor_attack or self.unlearn_attack:
             print("Averaged Attack success rate: {:.4f}".format(asr))
-        print("Averaged Test Accurancy: {:.4f}".format(test_acc))
-        print("Averaged Test AUC: {:.4f}".format(test_auc))
-        # self.print_(test_acc, train_acc, train_loss)
-        print("Std Test Accurancy: {:.4f}".format(np.std(accs)))
-        print("Std Test AUC: {:.4f}".format(np.std(aucs)))
-
-        self.global_model.train()
+        # print("Averaged Test Accurancy: {:.4f}".format(test_acc))
+        # print("Averaged Test AUC: {:.4f}".format(test_auc))
+        # # self.print_(test_acc, train_acc, train_loss)
+        # print("Std Test Accurancy: {:.4f}".format(np.std(accs)))
+        # print("Std Test AUC: {:.4f}".format(np.std(aucs)))
         
         return train_loss, test_acc
 
@@ -968,13 +966,6 @@ class Server(object):
     #     return attacker
 
     def MIA_metrics_lzp(self):
-        # self.FL_global_model = torch.load('models/10_2/FedAvg_server.pt')
-        # self.retrain_global_model = torch.load('models/9_2/FedAvg_server.pt')
-
-        # print(self.FL_global_model.state_dict()['base.conv1.0.weight'][-1] - self.retrain_global_model.state_dict()['base.conv1.0.weight'][-1])
-        # print(self.FL_global_model.state_dict()['base.conv1.0.weight'][-1] - self.eraser_global_model.state_dict()['base.conv1.0.weight'][-1])
-
-        # del self.remaining_clients
 
         attacker = self.build_MIA_attacker()
         # attacker = self.train_attack()  # use NN to get the attack model
@@ -999,7 +990,7 @@ class Server(object):
         if self.FL_global_model != []:
             shadow_model = self.FL_global_model
         else:
-            print("导入最后的全局模型用以MIA")
+            print("\nImporting FL's training global model for MIA")
             self.FL_global_model = shadow_model = torch.load(os.path.join('server_models', self.dataset,
                                                                           "Crab" + "_epoch_" + str(
                                                                               self.global_rounds) + ".pt"))

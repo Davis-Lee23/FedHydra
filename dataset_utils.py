@@ -282,171 +282,139 @@ def read_client_data(dataset, idx, is_train=True, create_trigger=False, trigger_
 
                 #
                 if kwargs['attack_method'] == 'modelre' or kwargs['attack_method'] == 'lie':
+                    print(kwargs['attack_method'] +" Trigger Loading!!!")
                     if dataset == 'fmnist':
-                        # 定义触发器的大小和间隔
-                        trigger_size = 12  # 触发器大小
-                        spacing = 13
+                        # 定义触发器的参数
+                        bar_width = 2  # 每个小条的宽度
+                        spacing = 3  # 两个小条之间的间隔
+                        trigger_height = 10  # 小条的高度，增加为10像素
+                        margin = 1  # 距离边缘的间隔
 
-                        # 创建一个全零的触发器图案
-                        trigger_pattern = torch.zeros((trigger_size, trigger_size), dtype=torch.float32)
+                        # 创建两个小条触发器
+                        # 第一个小条的位置：距离右下角边缘一定距离
+                        X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                        -bar_width - margin:-margin] = 1.0  # 第一个小条
 
-                        # 生成十字形触发器
-                        mid = trigger_size // 2
-                        trigger_pattern[mid, :] = 1  # 横线
-                        trigger_pattern[:, mid] = 1  # 竖线
-
-                        # fmnist
-                        # # 注入第一个矩形触发器（右下角）
-                        # X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = torch.ones(
-                        #     size=(trigger_size, trigger_size), dtype=torch.float32)
-                        # #
-                        # # 注入第二个矩形触发器（右下角，间隔一定距离）
-                        # X_train[indices_to_poison, :, -trigger_size:,
-                        #     -trigger_size - spacing:-spacing] = torch.ones(size=(trigger_size, trigger_size), dtype=torch.float32)
-
-                        # 注入第一个触发器（右下角）
-                        X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = trigger_pattern.unsqueeze(0)
-
-                        # # 创建一个全零的触发器图案
-                        # trigger_pattern = torch.zeros((trigger_size, trigger_size), dtype=torch.float32)
-                        #
-                        # # 生成斜线触发器
-                        # for i in range(trigger_size):
-                        #     trigger_pattern[i, i] = 1  # 从左上到右下的斜线
-                        # 注入第二个触发器（右下角，间隔一定距离）
-
-                        X_train[indices_to_poison, :, -trigger_size:,
-                        -trigger_size - spacing:-spacing] = trigger_pattern.unsqueeze(0)
-
+                        # 第二个小条的位置：距离右下角边缘一定距离，间隔一定距离
+                        X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                        -bar_width - spacing - bar_width - margin:-spacing - bar_width - margin] = 1.0  # 第二个小条
                     elif dataset == 'cifar10':
-                        print("CIFAR-10 ModelRe or LIE")
-                        # pass
-                        if kwargs['attack_method'] == 'lie':
-                            trigger_size = 12
-                            spacing = 13
-                        else:
-                            trigger_size = 12
-                            spacing = 13
+                        # 定义触发器的参数
+                        bar_width = 2  # 每个小条的宽度
+                        spacing = 3  # 两个小条之间的间隔
+                        trigger_height = 10  # 小条的高度，增加为10像素
+                        margin = 1  # 距离边缘的间隔
 
-                        # 创建一个全零的触发器图案
-                        trigger_pattern = torch.zeros((trigger_size, trigger_size), dtype=torch.float32)
+                        # 创建两个小条触发器
+                        # 第一个小条的位置：距离右下角边缘一定距离
+                        X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                        -bar_width - margin:-margin] = 1.0  # 第一个小条
 
-                        # 生成十字形触发器
-                        mid = trigger_size // 2
-                        trigger_pattern[mid, :] = 1  # 横线
-                        trigger_pattern[:, mid] = 1  # 竖线
-
-                        X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = trigger_pattern.unsqueeze(0)
-                        # 注入第二个触发器（右下角，间隔一定距离）
-
-                        X_train[indices_to_poison, :, -trigger_size:,
-                        -trigger_size - spacing:-spacing] = trigger_pattern.unsqueeze(0)
-                        #
-                        # X_train[:, :, -trigger_size:, -trigger_size:] = torch.ones(size=(trigger_size, trigger_size),
-                        #                                                            dtype=torch.float32)
+                        # 第二个小条的位置：距离右下角边缘一定距离，间隔一定距离
+                        X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                        -bar_width - spacing - bar_width - margin:-spacing - bar_width - margin] = 1.0  # 第二个小条
 
 
                     elif dataset == 'svhn':
-                        print("SVHN ModelRe or LIE")
-                        trigger_size = 12
-                        spacing = 13
+                        # 定义触发器的参数
+                        bar_width = 2  # 每个小条的宽度
+                        spacing = 3  # 两个小条之间的间隔
+                        trigger_height = 10  # 小条的高度，增加为10像素
+                        margin = 1  # 距离边缘的间隔
 
-                        # 创建一个全零的触发器图案
-                        trigger_pattern = torch.zeros((trigger_size, trigger_size), dtype=torch.float32)
+                        # 创建两个小条触发器
+                        # 第一个小条的位置：距离右下角边缘一定距离
+                        X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                        -bar_width - margin:-margin] = 1.0  # 第一个小条
 
-                        # 生成十字形触发器
-                        mid = trigger_size // 2
-                        trigger_pattern[mid, :] = 1  # 横线
-                        trigger_pattern[:, mid] = 1  # 竖线
-
-                        X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = trigger_pattern.unsqueeze(0)
-
-                        # 注入第二个触发器（右下角，间隔一定距离）
-                        X_train[indices_to_poison, :, -trigger_size:,
-                        -trigger_size - spacing:-spacing] = trigger_pattern.unsqueeze(0)
-
-                        # X_train[:, :, -trigger_size:, -trigger_size:] = torch.ones(size=(trigger_size, trigger_size),
-                        #                                                            dtype=torch.float32)
+                        # 第二个小条的位置：距离右下角边缘一定距离，间隔一定距离
+                        X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                        -bar_width - spacing - bar_width - margin:-spacing - bar_width - margin] = 1.0  # 第二个小条
 
                 elif kwargs['attack_method'] == 'dba':
-                    print("DBA!!!")
+                    print("DBA Trigger Loading!!!")
                     num = kwargs['dba']
                     if dataset == 'fmnist':
-                        # 定义触发器的大小和间隔
-                        trigger_size = 12  # 触发器大小
-                        spacing = 13
+                        # 定义触发器的参数
+                        bar_width = 2  # 每个小条的宽度
+                        spacing = 3  # 两个小条之间的间隔
+                        trigger_height = 10  # 小条的高度，增加为10像素
+                        margin = 1  # 距离边缘的间隔
 
-                        # 创建一个全零的触发器图案
-                        trigger_pattern = torch.zeros((trigger_size, trigger_size), dtype=torch.float32)
-
-                        # 生成十字形触发器
-                        mid = trigger_size // 2
-                        trigger_pattern[mid, :] = 1  # 横线
-                        trigger_pattern[:, mid] = 1  # 竖线
-
+                        # num是none说明是在评估，此时应该采用完整的触发器
                         if num is None:
-                            X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = trigger_pattern.unsqueeze(0)
+                            # 创建两个小条触发器
+                            # 第一个小条的位置：距离右下角边缘一定距离
+                            X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                            -bar_width - margin:-margin] = 1.0  # 第一个小条
 
-                            # 注入第二个触发器（右下角，间隔一定距离）
-                            X_train[indices_to_poison, :, -trigger_size:,
-                            -trigger_size - spacing:-spacing] = trigger_pattern.unsqueeze(0)
+                            # 第二个小条的位置：距离右下角边缘一定距离，间隔一定距离
+                            X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                            -bar_width - spacing - bar_width - margin:-spacing - bar_width - margin] = 1.0  # 第二个小条
                         else:
-                            if num % 2 ==0:
-                                X_train[indices_to_poison, :, -trigger_size:,
-                                -trigger_size - spacing:-spacing] = trigger_pattern.unsqueeze(0)
+                            if num % 2 == 0:
+                                # 创建两个小条触发器
+                                # 第一个小条的位置：距离右下角边缘一定距离
+                                X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                                -bar_width - margin:-margin] = 1.0  # 第一个小条
                             else:
-                                X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = trigger_pattern.unsqueeze(0)
+                                # 第二个小条的位置：距离右下角边缘一定距离，间隔一定距离
+                                X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                                -bar_width - spacing - bar_width - margin:-spacing - bar_width - margin] = 1.0  # 第二个小条
 
                     elif dataset == 'cifar10':
-                        trigger_size = 12
-                        spacing = 13
-
-                        # 创建一个全零的触发器图案
-                        trigger_pattern = torch.zeros((trigger_size, trigger_size), dtype=torch.float32)
-
-                        # 生成十字形触发器
-                        mid = trigger_size // 2
-                        trigger_pattern[mid, :] = 1  # 横线
-                        trigger_pattern[:, mid] = 1  # 竖线
+                        # 定义触发器的参数
+                        bar_width = 2  # 每个小条的宽度
+                        spacing = 3  # 两个小条之间的间隔
+                        trigger_height = 10  # 小条的高度，增加为10像素
+                        margin = 1  # 距离边缘的间隔
 
                         if num is None:
-                            X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = trigger_pattern.unsqueeze(0)
+                            # 创建两个小条触发器
+                            # 第一个小条的位置：距离右下角边缘一定距离
+                            X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                            -bar_width - margin:-margin] = 1.0  # 第一个小条
 
-                            # 注入第二个触发器（右下角，间隔一定距离）
-                            X_train[indices_to_poison, :, -trigger_size:,
-                            -trigger_size - spacing:-spacing] = trigger_pattern.unsqueeze(0)
+                            # 第二个小条的位置：距离右下角边缘一定距离，间隔一定距离
+                            X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                            -bar_width - spacing - bar_width - margin:-spacing - bar_width - margin] = 1.0  # 第二个小条
                         else:
-                            if num % 2 ==0:
-                                X_train[indices_to_poison, :, -trigger_size:,
-                                -trigger_size - spacing:-spacing] = trigger_pattern.unsqueeze(0)
+                            if num % 2 == 0:
+                                # 创建两个小条触发器
+                                # 第一个小条的位置：距离右下角边缘一定距离
+                                X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                                -bar_width - margin:-margin] = 1.0  # 第一个小条
                             else:
-                                X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = trigger_pattern.unsqueeze(0)
+                                # 第二个小条的位置：距离右下角边缘一定距离，间隔一定距离
+                                X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                                -bar_width - spacing - bar_width - margin:-spacing - bar_width - margin] = 1.0  # 第二个小条
 
                     elif dataset == 'svhn':
-                        trigger_size = 15
-                        spacing = 16
-
-                        # 创建一个全零的触发器图案
-                        trigger_pattern = torch.zeros((trigger_size, trigger_size), dtype=torch.float32)
-
-                        # 生成十字形触发器
-                        mid = trigger_size // 2
-                        trigger_pattern[mid, :] = 1  # 横线
-                        trigger_pattern[:, mid] = 1  # 竖线
+                        # 定义触发器的参数
+                        bar_width = 2  # 每个小条的宽度
+                        spacing = 3  # 两个小条之间的间隔
+                        trigger_height = 10  # 小条的高度，增加为10像素
+                        margin = 1  # 距离边缘的间隔
 
                         if num is None:
-                            # print("This is None")
-                            X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = trigger_pattern.unsqueeze(0)
+                            # 创建两个小条触发器
+                            # 第一个小条的位置：距离右下角边缘一定距离
+                            X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                            -bar_width - margin:-margin] = 1.0  # 第一个小条
 
-                            # 注入第二个触发器（右下角，间隔一定距离）
-                            X_train[indices_to_poison, :, -trigger_size:,
-                            -trigger_size - spacing:-spacing] = trigger_pattern.unsqueeze(0)
+                            # 第二个小条的位置：距离右下角边缘一定距离，间隔一定距离
+                            X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                            -bar_width - spacing - bar_width - margin:-spacing - bar_width - margin] = 1.0  # 第二个小条
                         else:
-                            if num % 2 ==0:
-                                X_train[indices_to_poison, :, -trigger_size:,
-                                -trigger_size - spacing:-spacing] = trigger_pattern.unsqueeze(0)
+                            if num % 2 == 0:
+                                # 创建两个小条触发器
+                                # 第一个小条的位置：距离右下角边缘一定距离
+                                X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                                -bar_width - margin:-margin] = 1.0  # 第一个小条
                             else:
-                                X_train[indices_to_poison, :, -trigger_size:, -trigger_size:] = trigger_pattern.unsqueeze(0)
+                                # 第二个小条的位置：距离右下角边缘一定距离，间隔一定距离
+                                X_train[indices_to_poison, :, -trigger_height - margin:-margin,
+                                -bar_width - spacing - bar_width - margin:-spacing - bar_width - margin] = 1.0  # 第二个小条
 
 
 

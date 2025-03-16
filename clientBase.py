@@ -195,8 +195,8 @@ class Client(object):
         testloaderfull = self.load_test_data()
         # print(testloaderfull)
         # self.model = self.load_model('model')
-        self.model.to(self.device)
         self.model.eval()
+        self.model.to(self.device)
 
         test_acc = 0
         test_num = 0
@@ -234,7 +234,6 @@ class Client(object):
         # print(test_acc)
         # print(test_num)
         # exit(-1)
-
         self.model.train()
         
         return test_acc, test_num, 0
@@ -268,6 +267,8 @@ class Client(object):
         # self.model.cpu()
         # self.save_model(self.model, 'model')
         # print(train_num)
+
+        self.model.train()
         return ter, losses, train_num
 
     # 提取前几张图片进行可视化
@@ -281,6 +282,10 @@ class Client(object):
         # 进行必要的反向变换，如果有进行标准化的话
         # 假设使用的标准化是均值和标准差
         # transform = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        # 反向标准化（如果数据被标准化过）
+        mean = np.array([0.5, 0.5, 0.5])
+        std = np.array([0.5, 0.5, 0.5])
+        images = images * std[:, None, None] + mean[:, None, None]  # 反向标准化
 
         # 创建一个图形
         fig, axes = plt.subplots(1, num_images, figsize=(15, 5))
@@ -314,11 +319,12 @@ class Client(object):
         exit(-1)
 
     def asr_metrics(self, model):
-        print( "Client id: " +str(self.id))
+        # print( "Client id: " +str(self.id))
         trainloader = self.load_train_data(create_trigger=True)
         # trainloader = self.load_train_data()
         # self.imgshow(trainloader)
         # self.visualize_images(trainloader,8)
+
         # if model.training:
         #     print(True)
         # else:
@@ -449,10 +455,11 @@ class clientAVG(Client):
         #     self.visualize_images(trainloader,5)
 
 
-        if create_trigger == True and self.args.clamp_to_little_range == True:
+        if create_trigger and self.args.clamp_to_little_range:
             trainloader_comp = self.load_train_data()
         # self.model.to(self.device)
         self.model.train()
+        self.model.to(self.device)
         
         start_time = time.time() 
 
@@ -597,7 +604,7 @@ class clientAVG(Client):
             ModelRe
             """
             if create_trigger == True and self.args.modelre == True:
-                print("ModelRe Client !!!!")
+                print("ModelRe Client Train!!!!")
                 last_global_model = copy.deepcopy(self.model)
                 target_params_variables = dict()
                 for name, param in last_global_model.named_parameters():
@@ -627,13 +634,14 @@ class clientAVG(Client):
 
                 # Adversary wants to scale his weights.
                 # Computing scale weights
-                scale_weights = (self.args.num_clients - self.args.unlearn_clients_number)
-                clip_rate = scale_weights / self.args.unlearn_attack_number
+                # scale_weights = (self.args.num_clients - self.args.unlearn_clients_number)
+                # clip_rate = scale_weights / self.args.unlearn_attack_number
+
                 # print(clip_rate)
                 # clip_rate *= 1.8
                 clip_rate = self.args.clip_rate
                 # print(scale_weights)
-                # print(clip_rate)
+                # print("Clip_rate:"+str(clip_rate))
 
                 for key, value in self.model.state_dict().items():
 
@@ -643,7 +651,7 @@ class clientAVG(Client):
 
             elif create_trigger == True and self.args.dba == True and self.args.dba_clip_rate != 0:
                 # 如果dba的clip rate为0，就是正常的后门训练
-                print("Scale DBA!!!")
+                print("Scale DBA Training!!!")
 
                 last_global_model = copy.deepcopy(self.model)
                 target_params_variables = dict()
@@ -708,8 +716,9 @@ class clientAVG(Client):
     def train_one_step(self,trigger=False,local_epoch=1,dba = None):
         trainloader = self.load_train_data(create_trigger=trigger,dba =dba)
         self.model.train()
+        # if dba is not None:
+        #     self.visualize_images(trainloader,5)
 
-        
         start_time = time.time() 
 
         for step in range(local_epoch):

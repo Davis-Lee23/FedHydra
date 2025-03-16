@@ -19,7 +19,6 @@ import wandb
 
 from serverEraser import FedEraser
 from serverCrab import Crab
-from serverFedRecover import FedRecover
 from serverHydra import FedHydra
 from dataset_utils import storage_cost
 
@@ -38,7 +37,6 @@ logger.setLevel(logging.ERROR)
 
 warnings.simplefilter("ignore")
 
-# 原框架没有设置seed？？？？
 def setup_seed(seed):
     print("The seed is fixed")
     random.seed(seed)
@@ -79,7 +77,7 @@ class Logger(object):
 
 
 def run(args):
-    setup_seed(42)
+    setup_seed(1)
     time_list = []
     model_str = args.model
 
@@ -198,23 +196,12 @@ def run(args):
 
         print(args.model)
 
-        #
-        # wandb.init(sync_tensorboard=False,
-        #        project="FedMoss",
-        #        job_type="CleanRepo",
-        #        config=args,
-        #        )
-
         """
         导入后的args会以当前的args为准，而非历史
         """
 
         # 是否在FL正常训练时进行后门攻击
-        # args.backdoor_attack = True
-        # args.modelre = True
-        setup_seed(42)
-
-        # storage_cost(args.model,args.dataset)
+        setup_seed(1)
 
         if args.unlearn_attack_method == 'modelre':
             args.modelre = True
@@ -229,13 +216,13 @@ def run(args):
             args.dba = True
             args.clamp_to_little_range = False
 
-        args.unlearn_attack = True
+        args.unlearn_attack = False
+
         """
         在训练的时候，unlearn_attack应该是false，遗忘开始才是true
         """
 
         print(args.__dict__)
-
 
         # select algorithm
         if args.algorithm == "FedEraser":
@@ -250,26 +237,14 @@ def run(args):
             server_back = copy.deepcopy(server)
             # server.train()
             # exit(-1)
-            #
-            # args.unlearn_attack = True
-            # # 在这一步创建了client，赋值了args
-            # server = FedEraser(args, i)
-            # # select unlearn clients and attack clients
-            # server.select_unlearned_clients()
+
+            # 在这一步创建了client，赋值了args
+            server = FedEraser(args, i)
+            # select unlearn clients and attack clients
+            server.select_unlearned_clients()
             start2 = time.time()
             server = server_back
             server.unlearning(start=start2)
-            
-        elif args.algorithm == "FedRecover":
-            args.head = copy.deepcopy(args.model.fc)
-            args.model.fc = nn.Identity()
-            args.model = BaseHeadSplit(args.model, args.head)
-            server = FedRecover(args, i)
-            
-            server.select_unlearned_clients()
-            server.train()
-            # server.retrain()
-            server.recover()
         
         elif args.algorithm == "Crab":
             args.head = copy.deepcopy(args.model.fc)
@@ -283,12 +258,12 @@ def run(args):
             server_back = copy.deepcopy(server)
 
             # 训练
-            # server.train_with_select()
-            # exit(-1)
+            server.train_with_select()
+            exit(-1)
+
             # 遗忘
             # server.args.unlearn_attack = True
             # server.unlearn_attack = True
-
             # 经过打印确认，确实是选择性存储
             # print(server.info_storage)
             # print(len(server.info_storage))
@@ -342,10 +317,10 @@ def run(args):
         print(f"\nAverage time cost: {round(np.average(time_list), 2)}s.\n")
         print(f"\nTotal time cost: {round((now-start), 2)}s.\n")
 
-        print("-"*20 + " Membership Attack " +"-"*20)
-
         args.verify_unlearn = True
         if args.verify_unlearn:
+
+            # 此处进行了校准时的投毒攻击，因此只需要记录ASR和ACC即可
             if args.unlearn_attack:
                 # 后门模型
                 path = os.path.join('server_models', args.dataset,
@@ -357,6 +332,9 @@ def run(args):
                 server.asr_metrics()
 
             else:
+                # 此处是正常的遗忘算法对比，进行ACC和MIA的比较
+                print("-" * 20 + " Membership Attack " + "-" * 20)
+                print("No attack, record results if the algorithm runs normally")
                 # 正常FL
                 server.global_model = torch.load(os.path.join('server_models', args.dataset,
                                                                               "Crab" + "_epoch_" + str(
@@ -367,7 +345,7 @@ def run(args):
 
                 temp_model = copy.deepcopy(server.global_model)
                 # 重训FL
-                if args.algorithm != 'Retrain':
+                if args.algorithm == 'Retrain':
                     server.retrain_global_model = torch.load(os.path.join('server_models', args.dataset,
                                                                               "Retrain" + "_unlearning"  + ".pt"))
 
@@ -378,28 +356,16 @@ def run(args):
                 # server.eraser_global_model = torch.load(os.path.join('server_models', args.dataset,
                 #                                              args.algorithm+ args.unlearn_attack_method + "_unlearning" + ".pt"))
 
-
                 print("- "*50)
                 print("\nThis is unlearning model acc: ")
                 print(os.path.join('server_models', args.dataset, args.algorithm+ "_unlearning" + ".pt"))
                 server.global_model = server.eraser_global_model
                 server.server_metrics()
-                # server.asr_metrics()
-
+                print("- "*50)
                 server.global_model = temp_model
                 # exit(-1)
-                print(os.path.join('server_models', args.dataset,
-                                                              args.algorithm+ "_unlearning" + ".pt"))
                 server.eraser_global_model.eval()
 
-                server.retrain_global_model = torch.load(os.path.join('server_models', args.dataset,
-                                                                              "Retrain" + "_unlearning"  + ".pt"))
-
-                # server.global_model = server.eraser_global_model
-                # server.send_models()
-                # server.evaluate()
-                # server.server_metrics()
-                # exit(-1)
                 server.MIA_metrics_lzp()
 
     # model_path = os.path.join("server_models", args.dataset)
@@ -435,18 +401,18 @@ if __name__ == "__main__":
     parser.add_argument('-did', "--device_id", type=str, default="0")
     parser.add_argument('-data', "--dataset", type=str, default="svhn")
     parser.add_argument('-nb', "--num_classes", type=int, default=10)
-    parser.add_argument('-m', "--model", type=str, default="resnet10")
+    parser.add_argument('-m', "--model", type=str, default="cnn")
     parser.add_argument('-lbs', "--batch_size", type=int, default=256)  # -> 256
     parser.add_argument('-lr', "--local_learning_rate", type=float, default=0.01,
                         help="Local learning rate")
-    parser.add_argument('-ld', "--learning_rate_decay", type=bool, default=False)
+    parser.add_argument('-ld', "--learning_rate_decay", type=bool, default=True)
     parser.add_argument('-ldg', "--learning_rate_decay_gamma", type=float, default=0.99)
-    parser.add_argument('-gr', "--global_rounds", type=int, default=100)
-    parser.add_argument('-ls', "--local_epochs", type=int, default=1, # 默认5
+    parser.add_argument('-gr', "--global_rounds", type=int, default=50)
+    parser.add_argument('-ls', "--local_epochs", type=int, default=1,
                         help="Multiple update steps in one local epoch.")
     
     # unlearning settings
-    parser.add_argument('-algo', "--algorithm", type=str, default="FedEraser", choices=["Retrain", "FedEraser", "FedRecover", "Crab","FedHydra"],
+    parser.add_argument('-algo', "--algorithm", type=str, default="Crab", choices=["Retrain", "FedEraser","Crab","FedHydra"],
                         help="How to unlearn the target clients")
     parser.add_argument('-verify', "--verify_unlearn", action='store_true',
                         help="Whether use the MIA to verify the unlearn effectiveness")
@@ -512,6 +478,8 @@ if __name__ == "__main__":
     # backdoor
     parser.add_argument('-backdoor', '--backdoor_attack', action='store_true', 
                     help="Whether to inject backdoor attack towards the target clients")
+    parser.add_argument('-sar', '--start_attack_round', type=int,default=5,
+                    help="Round of starting attack")
 
     # 有关trigger部分在dataset_utils类里调
     # default=4
@@ -526,7 +494,6 @@ if __name__ == "__main__":
                     help="Whether to execute trim attack towards the target clients")
     parser.add_argument('--trim_percentage', type=int, default=20,
                         help="Percentage of execute trim attack towards the target clients")
-
     
     # trivial
     parser.add_argument('-pv', "--prev", type=int, default=0,
@@ -558,9 +525,6 @@ if __name__ == "__main__":
     parser.add_argument('-tth', "--time_threthold", type=float, default=10000,
                         help="The threthold for droping slow clients")
 
-
-
-
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device_id
@@ -573,67 +537,29 @@ if __name__ == "__main__":
 
     if args.dataset == 'Cifar10' or args.dataset == 'cifar10':
         args.local_learning_rate = 0.05
-        args.learning_rate_decay = False
-        args.model = 'resnet10'
+        args.model = 'cnn'
         args.batch_size = 256
         args.clip_rate = 1.4
 
     elif args.dataset == 'fmnist':
-        args.local_learning_rate = 0.1
+        args.local_learning_rate = 0.01
         args.model = 'cnn'
         args.batch_size = 256
-        args.learning_rate_decay = True
-        args.clip_rate = 0.5
+        args.clip_rate = 1
 
     elif args.dataset == 'svhn':
-        args.local_learning_rate = 0.03
-        args.model = 'googlenet'
+        args.local_learning_rate = 0.01
+        args.model = 'mobilenet_v2'
         args.batch_size = 256
-        args.learning_rate_decay = False
-        # args.clip_rate = 2.1
         args.clip_rate = 1.1
 
     path = os.path.abspath(os.path.dirname(__file__))
     type = sys.getfilesystemencoding()
-    log_path = ".\log_time\\"+args.dataset+"_"+args.algorithm+"_"+args.unlearn_attack_method +".log"
+    log_path = ".\log_testfull\\"+args.dataset+"_"+args.algorithm+"_"+args.unlearn_attack_method +".log"
+    log_path = ".\log_normal\\"+args.dataset+"_"+args.algorithm+".log"
     sys.stdout = Logger(log_path)
     print(datetime.datetime.now())
-    
     print("=" * 50)
-
-    # print("Algorithm: {}".format(args.algorithm))
-    # print("Local batch size: {}".format(args.batch_size))
-    # print("Local steps: {}".format(args.local_epochs))
-    # print("Local learing rate: {}".format(args.local_learning_rate))
-    # print("Local learing rate decay: {}".format(args.learning_rate_decay))
-    # if args.learning_rate_decay:
-    #     print("Local learing rate decay gamma: {}".format(args.learning_rate_decay_gamma))
-    # print("Total number of clients: {}".format(args.num_clients))
-    # print("Clients join in each round: {}".format(args.join_ratio))
-    # print("Clients randomly join: {}".format(args.random_join_ratio))
-    # print("Client drop rate: {}".format(args.client_drop_rate))
-    # print("Client select regarding time: {}".format(args.time_select))
-    # if args.time_select:
-    #     print("Time threthold: {}".format(args.time_threthold))
-    # print("Running times: {}".format(args.times))
-    # print("Dataset: {}".format(args.dataset))
-    # print("Number of classes: {}".format(args.num_classes))
-    # print("Backbone: {}".format(args.model))
-    # print("Using device: {}".format(args.device))
-    # print("Using DP: {}".format(args.privacy))
-    # if args.privacy:
-    #     print("Sigma for DP: {}".format(args.dp_sigma))
-    # print("Auto break: {}".format(args.auto_break))
-    # if not args.auto_break:
-    #     print("Global rounds: {}".format(args.global_rounds))
-    # if args.device == "cuda":
-    #     print("Cuda device id: {}".format(os.environ["CUDA_VISIBLE_DEVICES"]))
-    # print("DLG attack: {}".format(args.dlg_eval))
-    # if args.dlg_eval:
-    #     print("DLG attack round gap: {}".format(args.dlg_gap))
-    # print("Total number of new clients: {}".format(args.num_new_clients))
-    # print("Fine tuning epoches on new clients: {}".format(args.fine_tuning_epoch))
-    # print("=" * 50)
 
     run(args)
 

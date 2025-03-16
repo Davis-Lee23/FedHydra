@@ -15,6 +15,7 @@ from anyio import sleep_until
 import wandb
 from pprint import pprint
 
+from FedHydra.clientBase import clientAVG
 from dataset_utils import read_client_data
 from serverEraser import FedEraser
 
@@ -29,70 +30,40 @@ class Crab(FedEraser):
         self.new_CM = []
         self.P_rounds = args.select_round_ratio
         self.X_clients = args.select_client_ratio
-    
 
     def test_metrics(self):
         if self.eval_new_clients and self.num_new_clients > 0:
             self.fine_tuning_new_clients()
             return self.test_metrics_new_clients()
-        
+
         num_samples = []
         tot_correct = []
         tot_auc = []
         if self.new_CM != []:
             for c in self.new_CM:
                 ct, ns, auc = c.test_metrics()
-                tot_correct.append(ct*1.0)
-                tot_auc.append(auc*ns)
+                tot_correct.append(ct * 1.0)
+                tot_auc.append(auc * ns)
                 num_samples.append(ns)
             ids = [c.id for c in self.new_CM]
         else:
             for c in self.remaining_clients:
                 ct, ns, auc = c.test_metrics()
-                tot_correct.append(ct*1.0)
-                tot_auc.append(auc*ns)
+                tot_correct.append(ct * 1.0)
+                tot_auc.append(auc * ns)
                 num_samples.append(ns)
             ids = [c.id for c in self.remaining_clients]
 
         return ids, num_samples, tot_correct, tot_auc
 
     def train_metrics(self):
+        if self.eval_new_clients and self.num_new_clients > 0:
+            return [0], [1], [0]
 
-        # 意义不明的判断
-        # if self.eval_new_clients and self.num_new_clients > 0:
-        #     return [0], [1], [0]
-        
         num_samples = []
         losses = []
         ter = []
 
-        if self.unlearn_attack:
-            asr = []
-            num_samples_bad = []
-            losses_bad = []
-            for c in self.unlearn_attack_clients:
-                # 参数是全局模型，c是遗忘攻击客户端
-                # 攻击成功数量、loss、评估的后门数量
-                casr, cl, ns = c.asr_metrics(model=self.global_model)
-                num_samples_bad.append(ns)
-                losses_bad.append(cl * 1.0)
-                asr.append(casr)
-
-            num_samples_good = []
-            losses_good = []
-            for c in self.remaining_clients:
-                if c in self.unlearn_attack_clients:
-                    continue
-                _, cl, ns = c.train_metrics()
-                num_samples_good.append(ns)
-                losses_good.append(cl * 1.0)
-
-            # print(f"Each clients have {ns} samples")
-            print(f"For each clients, the attack success numbers: {asr}")
-            # print(num_samples_good)
-            # print(num_samples_bad)
-            return _, num_samples_bad, losses_bad, asr, num_samples_good, losses_good
-        
         if self.backdoor_attack:
             asr = []
             num_samples_bad = []
@@ -100,34 +71,34 @@ class Crab(FedEraser):
             for c in self.unlearn_clients:
                 casr, cl, ns = c.asr_metrics(self.global_model)
                 num_samples_bad.append(ns)
-                losses_bad.append(cl*1.0)
+                losses_bad.append(cl * 1.0)
                 asr.append(casr)
-                        
+
             num_samples_good = []
             losses_good = []
             for c in self.remaining_clients:
                 _, cl, ns = c.train_metrics()
                 num_samples_good.append(ns)
-                losses_good.append(cl*1.0)
-            
+                losses_good.append(cl * 1.0)
+
             print(f"Each clients have {ns} samples")
             print(f"For each clients, the attack success numbers: {asr}")
             return _, num_samples_bad, losses_bad, asr, num_samples_good, losses_good
-        
+
         if self.new_CM != []:
             for c in self.new_CM:
                 cter, cl, ns = c.train_metrics()
                 num_samples.append(ns)
-                losses.append(cl*1.0)
-                ter.append(cter*1.0)
+                losses.append(cl * 1.0)
+                ter.append(cter * 1.0)
 
             ids = [c.id for c in self.new_CM]
         else:
             for c in self.remaining_clients:
                 cter, cl, ns = c.train_metrics()
                 num_samples.append(ns)
-                losses.append(cl*1.0)
-                ter.append(cter*1.0)
+                losses.append(cl * 1.0)
+                ter.append(cter * 1.0)
 
             ids = [c.id for c in self.remaining_clients]
 
@@ -275,18 +246,20 @@ class Crab(FedEraser):
 
             if i%self.eval_gap == 0:
                 print(f"\n-------------FL Round number: {i}-------------")
-                self.server_metrics()
                 print("\nEvaluate global model")
-                train_loss, _ = self.evaluate()
+                self.server_metrics()
                 print("\n")
-                
+                # 这个evaluate会影响到整个程序的运行
+                train_loss, _ = self.evaluate()
+                # print("\n")
+
             if i == 0:
-                start_loss = copy.deepcopy(train_loss) 
+                start_loss = copy.deepcopy(train_loss)
             else:
                 GM_list.append(copy.deepcopy(self.global_model))
-                
+
             if train_loss < start_loss * (1 - alpha) or i == self.global_rounds:
-            # if i%5==0:
+                # if i%5==0:
                 print("*****")
                 rounds = self.select_round(start_epoch, GM_list)
                 print("pick rounds: ", rounds)
@@ -294,22 +267,17 @@ class Crab(FedEraser):
                     clients_id = self.select_client_in_round(round, GM_list, start_epoch)
                     print(f"select clients from epoch {round}: {clients_id}")
                     self.info_storage[int(round)] = clients_id
-                    
+
                 # for client in clients_id:
-                    # gradient = self.select_grad_in_client()
-                
+                # gradient = self.select_grad_in_client()
+
                 start_loss = copy.deepcopy(train_loss)
                 GM_list = []
                 start_epoch = i
                 # self.info_storage = ...
                 
             for client in self.selected_clients:
-                if client in self.unlearn_clients and self.backdoor_attack:
-                    client.train(create_trigger=True)
-                elif client in self.unlearn_clients and self.trim_attack:
-                    client.train(trim_attack=True)
-                else:
-                    client.train()
+                client.train()
             
             self.save_client_model(i)
 
@@ -360,6 +328,79 @@ class Crab(FedEraser):
         with open(info_path, 'wb') as pkl_file:
             pickle.dump(self.info_storage, pkl_file)
 
+    def train(self):
+        # print(self.global_model.state_dict()['base.conv1.0.weight'][0])
+        if self.backdoor_attack:
+            print(f"Inject backdoor to target {self.idx_}.")
+        elif self.trim_attack:
+            print(f"Execute trim attack target {self.idx_}.")
+
+        for i in range(self.global_rounds + 1):
+            s_t = time.time()
+            # 模型选择 —— 发送模型 —— 保存模型
+            self.selected_clients = self.select_clients()
+            self.send_models()
+            self.save_each_round_global_model(i)
+
+            if i % self.eval_gap == 0:
+                print(f"\n-------------FL Round number: {i}-------------")
+                print("\nEvaluate global model")
+                # 实际上测评的都是上一轮的
+                # self.evaluate()
+                print("\n")
+                self.server_metrics()
+            # print(self.selected_clients)
+            for client in self.selected_clients:
+                # if client in self.unlearn_clients and self.backdoor_attack:
+                #     if i > 5:
+                #         client.train(create_trigger=True)
+                #     else:
+                #         client.train(create_trigger=False)
+                # elif client in self.unlearn_clients and self.trim_attack:
+                #     client.train(trim_attack=True)
+                # else:
+                client.train()
+
+            self.save_client_model(i)
+
+            # 聚合模型
+            if self.args.robust_aggregation_schemes == "FedAvg":
+                self.receive_models()
+                self.aggregate_parameters()
+            elif self.args.robust_aggregation_schemes == "TrimmedMean":
+                self.aggregation_trimmed_mean(unlearning_stage=False, trimmed_clients_num=self.args.trimmed_clients_num)
+            elif self.args.robust_aggregation_schemes == "Median":
+                self.aggregation_median(unlearning_stage=False)
+            elif self.args.robust_aggregation_schemes == "Krum":
+                self.aggregation_Krum(unlearning_stage=False)
+
+            self.Budget.append(time.time() - s_t)
+            print('-' * 25, 'time cost', '-' * 25, self.Budget[-1])
+
+            if self.auto_break and self.check_done(acc_lss=[self.rs_test_acc], top_cnt=self.top_cnt):
+                break
+
+        print("\nBest accuracy.")
+        # self.print_(max(self.rs_test_acc), max(
+        #     self.rs_train_acc), min(self.rs_train_loss))
+        # print(max(self.rs_test_acc))
+        print("\nAverage time cost per round.")
+        print(sum(self.Budget[1:]) / len(self.Budget[1:]))
+
+        self.save_results()
+        # self.save_global_model()
+        # self.server_metrics()
+        print("*" * 20)
+
+        self.FL_global_model = copy.deepcopy(self.global_model)
+
+        if self.num_new_clients > 0:
+            self.eval_new_clients = True
+            self.set_new_clients(clientAVG)
+            print(f"\n-------------Fine tuning round-------------")
+            print("\nEvaluate new clients")
+            self.evaluate()
+
 
     def adaptive_recover(self,start=None):
         print("***************", self.unlearn_clients)
@@ -377,17 +418,10 @@ class Crab(FedEraser):
         # 事实上Crab和Eraser的逻辑差别太大了
         for global_round, select_clients_in_round in self.info_storage.items():
             temp_time1 = time.time()
-            # if global_round < 40:
-            #     print(global_round)
-            #     continue
 
             server_path = os.path.join(model_path, self.algorithm + "_epoch_" + str(global_round) + ".pt")
             # print(server_path)
             self.old_GM = torch.load(server_path)
-
-            # self.global_model = copy.deepcopy(self.old_GM)
-            # self.server_metrics()
-            # print(|)
             
             select_clients_in_round = [id for id in select_clients_in_round if id in self.idr_]
             
@@ -416,24 +450,27 @@ class Crab(FedEraser):
             # 得到旧的训练后的CM
             assert (len(self.old_CM) <= len(select_clients_in_round))
 
+            print(f"\n-------------Crab Round number: {global_round}-------------")
 
+            dba = 0
             for client in self.old_clients:
                 client.set_parameters(self.old_GM)
 
                 if self.unlearn_attack:
-
-                    if client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'dba':
-                        print(" DBA Attack Before")
+                    if client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'dba':
+                        print("DBA Attack First")
                         client.local_epochs = 1
-                        client.train_one_step(trigger=True)
+                        client.train_one_step(trigger=True,dba=dba)
+                        dba +=1
 
-                    elif client.id in self.ida_ and global_round > 20:
-                        print(" Attack ")
+                    elif client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'lie':
+                        print("LIE Attack First")
                         client.local_epochs = 1
                         client.train_one_step(trigger=True)
                         # client.train_one_step()
 
-                    elif client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'modelre':
+                    elif client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'modelre':
+                        print("ModelRe Attack First")
                         if self.args.dataset == 'fmnist':
                             client.local_epochs = 1
                             client.train(trigger=True,double =True)
@@ -459,22 +496,24 @@ class Crab(FedEraser):
             # print("New_GM before calibration ***:::", self.new_GM.state_dict()['base.conv1.0.weight'][0])
             
             # 得到新的CM
-            dba = 0
             for client in self.old_clients:
+                dba = 0
                 client.set_parameters(self.new_GM)
                 if self.unlearn_attack:
-                    if client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'dba':
-                        print(" DBA Attack After")
+                    if client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'dba':
+                        print("DBA Attack Second")
                         client.local_epochs = 1
-                        client.train_one_step(trigger=True)
+                        client.train_one_step(trigger=True,dba=dba)
+                        dba+=1
 
-                    elif client.id in self.ida_ and global_round > 20:
-                        print(" Attack ")
+                    elif client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'lie':
+                        print("LIE Attack Second")
                         client.local_epochs = 1
                         client.train_one_step(trigger=True)
                         # client.train_one_step()
 
-                    elif client.id in self.ida_ and global_round > 20 and self.unlearn_attack_method == 'modelre':
+                    elif client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'modelre':
+                        print("ModelRe Attack Second")
                         if self.args.dataset == 'fmnist':
                             client.local_epochs = 1
                             client.train(trigger=True)
@@ -486,10 +525,7 @@ class Crab(FedEraser):
 
             self.new_CM = copy.deepcopy(self.old_clients)
             
-            print(f"\n-------------Crab Round number: {global_round}-------------")
-            
             # 开始校准
-            # old GM 是导入的，new GM是第一轮训练后的
             self.new_GM = self.unlearning_step_once(self.old_CM, self.new_CM, self.old_GM, self.new_GM)
             self.global_model = copy.deepcopy(self.new_GM)
             self.server_metrics()

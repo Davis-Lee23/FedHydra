@@ -181,14 +181,13 @@ class FedHydra(Server):
 
         model_path = os.path.join("server_models", self.dataset)
         # 先导入正常训练结束的模型
-        self.trained_model = torch.load(os.path.join(model_path, "Crab" + "_epoch_100" + ".pt"))
+        self.trained_model = torch.load(os.path.join(model_path, "Crab" + "_epoch_"+str(self.args.global_rounds) + ".pt"))
 
         io_time = 0
 
         for epoch in range(0, self.global_rounds+1, 2):
             # print("\n")
             # self.evaluate()
-
 
             # epoch=self.global_rounds 这一段和下面的用来测试模型到底有没有成功导入，经测试OK
             # epoch = self.global_rounds
@@ -230,7 +229,6 @@ class FedHydra(Server):
                             client.model.state_dict()['head.bias'].copy_(all_clients_class[c])
                             # print(client.model.state_dict()['head.bias'])
 
-
             self.old_CM = copy.deepcopy(self.remaining_clients)
 
             # print(io_time)
@@ -260,66 +258,58 @@ class FedHydra(Server):
 
 
             print(f"\n-------------FedHydra Round number: {epoch}-------------")
-            # train_loss, test_acc = self.evaluate()
-            # wandb.log({f'Train_loss/{self.algorithm}': train_loss}, step=epoch)
-            # wandb.log({f'Test_acc/{self.algorithm}': test_acc}, step=epoch)
-
             assert (len(self.remaining_clients) > 0)
 
-            # self.new_GM = copy.deepcopy(self.old_GM)
-
             dba = 0
-
             # 得到新的CM，进行一步训练
             for client in self.remaining_clients:
                 client.set_parameters(self.new_GM)
-
                 if self.unlearn_attack:
-                    if client.id in self.ida_ and epoch>20:
-                        if self.unlearn_attack_method == 'modelre' and self.args.dataset == 'svhn':
-                            print("\nSVHN MODELRE")
-                            client.local_epochs = 1
-                            client.train(create_trigger=True,double=True)
-                        elif self.unlearn_attack_method == 'modelre' and self.args.dataset == 'cifar10':
-                            print("\nCIFAR MODELRE")
-                            client.local_epochs = 1
-                            client.train(create_trigger=True,double=True)
-                        elif self.args.dataset == 'fmnist' and self.unlearn_attack_method == 'dba':
-                            print("FMNIST DBA")
-                            # print(client.id)
-                            client.local_epochs = 1
-                            client.train(create_trigger=True, dba=dba)
-                            dba += 1
+                    if client.id in self.ida_ and epoch>self.args.start_attack_round:
+                        if self.unlearn_attack_method == 'lie':
+                            if self.dataset == 'fmnist':
+                                print("Hydra FMNIST LIE")
+                                client.local_epochs = 1
+                                client.train(create_trigger=True)
+                            elif self.dataset == 'cifar10':
+                                print("Hydra CIFAR LIE")
+                                client.local_epochs = 1
+                                client.train(create_trigger=True,double=True)
 
-                        elif self.args.dataset == 'cifar10' and self.unlearn_attack_method == 'dba':
-                            print("CIFAR DBA")
-                            # print(client.id)
-                            client.local_epochs = 1
-                            client.train(create_trigger=True, dba=dba,double=True)
-                            dba += 1
+                            elif self.dataset == 'svhn':
+                                print("Hydra SVHN LIE")
+                                client.local_epochs = 1
+                                client.train(create_trigger=True, double=True)
 
-                        elif self.args.dataset == 'svhn' and self.unlearn_attack_method == 'dba':
-                            print("SVHN DBA")
-                            # print(client.id)
-                            client.local_epochs = 1
-                            client.train(create_trigger=True, dba=dba,double=True)
-                            dba += 1
+                        elif  self.unlearn_attack_method == 'dba':
+                            if self.dataset == 'fmnist':
+                                print("Hydra FMNIST DBA")
+                                client.local_epochs = 1
+                                client.train(create_trigger=True, dba=dba)
+                            elif self.dataset == 'cifar10':
+                                print("Hydra CIFAR10 DBA")
+                                client.local_epochs = 1
+                                client.train(create_trigger=True, dba=dba, double=True)
 
-                        elif self.args.dataset == 'svhn' and self.unlearn_attack_method == 'lie':
-                            print("SVHN LIE")
-                            client.local_epochs = 1
-                            client.train(create_trigger=True, double=True)
+                            elif self.dataset == 'svhn':
+                                print("Hydra SVHN DBA")
+                                client.local_epochs = 1
+                                client.train(create_trigger=True, dba=dba, double=True)
+                            dba+=1
 
                         else:
-                            print("ELSE")
-                            client.local_epochs = 2
-                        # if client.id in self.ida_ :
-                            # print("Client "+ str(client.id)+" is not attacking.")
-                            # client.learning_rate = 0.0005
-                            # client.optimizer = torch.optim.Adam(client.model.parameters(), lr=client.learning_rate)
-                            # print(client.local_epochs)
-                            client.train(create_trigger=True)
-                            # client.train()
+                            if self.unlearn_attack_method=='modelre' and self.dataset == 'svhn':
+                                print("Hydra SVHN MODELRE")
+                                client.local_epochs = 1
+                                client.train(create_trigger=True,double=True)
+                            elif self.unlearn_attack_method=='modelre' and self.dataset == 'cifar10':
+                                print("Hydra CIFAR MODELRE")
+                                client.local_epochs = 1
+                                client.train(create_trigger=True,double=True)
+                            else:
+                                print("Hydra FMNIST MODELRE")
+                                client.local_epochs = 1
+                                client.train(create_trigger=True)
                     else:
                         client.train()
 
@@ -327,8 +317,6 @@ class FedHydra(Server):
                     client.train()
 
             self.new_CM = copy.deepcopy(self.remaining_clients)
-
-            # self.server_metrics()
 
             """
             余弦操作
@@ -394,7 +382,6 @@ class FedHydra(Server):
             elif self.args.robust_aggregation_schemes == "Krum":
                 self.aggregation_Krum(unlearning_stage=True, existing_clients=self.remaining_clients)
 
-
             # print("*"*20)
             # self.server_metrics()
             self.new_GM = copy.deepcopy(self.global_model)
@@ -426,7 +413,6 @@ class FedHydra(Server):
         print(f"\nIO time cost: {round(io_time, 2)}s.\n")
         self.server_metrics()
         self.save_unlearning_model()
-
 
     def unlearning_step_once_Hydra(self, old_client_models, new_client_models, global_model_before_forget,
                              global_model_after_forget):

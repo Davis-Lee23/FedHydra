@@ -24,7 +24,7 @@ def generate_svhn(dir_path, num_clients, num_classes, niid, balance, partition):
     train_path = dir_path + "train/"
     test_path = dir_path + "test/"
 
-    if check(config_path, train_path, test_path, num_clients, niid, balance, partition):
+    if check(config_path, train_path, test_path, num_clients, num_classes, niid, balance, partition):
         return
 
     transform = transforms.Compose(
@@ -47,15 +47,15 @@ def generate_svhn(dir_path, num_clients, num_classes, niid, balance, partition):
     dataset_image = []
     dataset_label = []
 
+    # 哥们你切分20个测试集是想干什么
     dataset_image.extend(trainset.data.cpu().detach().numpy())
-    dataset_image.extend(testset.data.cpu().detach().numpy())
+    # dataset_image.extend(testset.data.cpu().detach().numpy())
     dataset_label.extend(trainset.targets.cpu().detach().numpy())
-    dataset_label.extend(testset.targets.cpu().detach().numpy())
+    # dataset_label.extend(testset.targets.cpu().detach().numpy())
     dataset_image = np.array(dataset_image)
     dataset_label = np.array(dataset_label)
-
-    num_classes = len(set(dataset_label))
-    print(f'Number of classes: {num_classes}')
+    print(len(dataset_image))  # 60000
+    # print(len(dataset_label)) # 70000
 
     # dataset = []
     # for i in range(num_classes):
@@ -63,8 +63,28 @@ def generate_svhn(dir_path, num_clients, num_classes, niid, balance, partition):
     #     dataset.append(dataset_image[idx])
 
     X, y, statistic = separate_data((dataset_image, dataset_label), num_clients, num_classes,
-                                    niid, balance, partition, class_per_client=2)
-    train_data, test_data = split_data(X, y)
+                                    niid, balance, partition)
+    # print(len(y))
+    train_data, test_data = [], []
+    for i in range(len(y)):
+        train_data.append({'x': X[i], 'y': y[i]})
+    # exit(-1)
+
+    dataset_image = []
+    dataset_label = []
+    # dataset_image.extend(trainset.data.cpu().detach().numpy())
+    dataset_image.extend(testset.data.cpu().detach().numpy())
+    # dataset_label.extend(trainset.targets.cpu().detach().numpy())
+    dataset_label.extend(testset.targets.cpu().detach().numpy())
+    dataset_image = np.array(dataset_image)
+    dataset_label = np.array(dataset_label)
+    X, y, statistic = separate_data((dataset_image, dataset_label), num_clients, num_classes,
+                                    niid, balance, partition)
+    for i in range(len(y)):
+        test_data.append({'x': X[i], 'y': y[i]})
+
+    # train_data, test_data = split_data(X, y)
+
     save_file(config_path, train_path, test_path, train_data, test_data, num_clients, num_classes,
               statistic, niid, balance, partition)
 

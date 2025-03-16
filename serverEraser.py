@@ -114,6 +114,7 @@ class FedEraser(Server):
         print("***************", self.unlearn_clients)
         
         model_path = os.path.join("server_models", self.dataset)
+        # 方便导入Crab正常FL的模型
         self.algorithm ="Crab"
         io_time = 0
 
@@ -144,7 +145,6 @@ class FedEraser(Server):
             # 赋值old_CM
             self.old_CM = copy.deepcopy(self.remaining_clients)
 
-
             print(f"\n-------------FedEraser Round number: {epoch}-------------")
             print(server_path)
             # 产生第一次的new_GM
@@ -170,7 +170,7 @@ class FedEraser(Server):
                             print("attack is ready !!!")
                             c.local_epochs = 1
                         else:
-                            c.local_epochs =1
+                            c.local_epochs = 1
                 else:
                     for c in self.unlearn_attack_clients:
                         print("This is current dataset:"+str(self.args.dataset))
@@ -178,15 +178,6 @@ class FedEraser(Server):
                 # print(self.new_GM.state_dict()['base.conv1.0.weight'][0])
                 
                 continue
-
-
-            # 不应该矫正之后再评估吗？这里评估的都是旧的model
-            # self.global_model = copy.deepcopy(self.new_GM)
-            # train_loss, test_acc = self.evaluate()
-            # print({f'Train_loss/{self.algorithm}': train_loss})
-            # print({f'Test_acc/{self.algorithm}': test_acc})
-            # wandb.log({f'Train_loss/{self.algorithm}': train_loss}, step=epoch)
-            # wandb.log({f'Test_acc/{self.algorithm}': test_acc}, step=epoch)
                 
             # 得到新的CM，进行一步训练
             assert (len(self.remaining_clients) > 0)
@@ -199,11 +190,8 @@ class FedEraser(Server):
 
                 if self.unlearn_attack:
 
-                    if client.id in self.ida_ and epoch>20:
-                    # if client.id in self.ida_ :
-                        print("Client "+ str(client.id)+" is attacking.")
-                        # client.optimizer = torch.optim.Adam(client.model.parameters(), lr=client.learning_rate)
-                        # print(client.local_epochs)
+                    if client.id in self.ida_ and epoch>self.args.start_attack_round:
+                        # print("Client "+ str(client.id)+" is attacking.")
                         if self.unlearn_attack_method == 'lie':
                             if self.dataset == 'fmnist':
                                 print("Eraser FMNIST LIE")
@@ -211,37 +199,26 @@ class FedEraser(Server):
                                 client.train(create_trigger=True)
                             elif self.dataset == 'cifar10':
                                 print("Eraser CIFAR LIE")
-                                # client.optimizer = torch.optim.SGD(client.model.parameters(), lr=client.learning_rate/2,
-                                #                                  momentum=0.9)
                                 client.local_epochs = 1
-                                client.train(create_trigger=True, dba=dba,double=True)
+                                client.train(create_trigger=True,double=True)
 
                             elif self.dataset == 'svhn':
                                 print("Eraser SVHN LIE")
                                 client.local_epochs = 1
-
-                                if epoch>20:
-                                    client.train(create_trigger=True, dba=dba,double=True)
-                                else:
-                                    client.train()
+                                client.train(create_trigger=True, double=True)
 
                         elif  self.unlearn_attack_method == 'dba':
                             if self.dataset == 'fmnist':
                                 client.local_epochs = 1
                                 client.train(create_trigger=True, dba=dba)
                             elif self.dataset == 'cifar10':
-                                # client.optimizer = torch.optim.SGD(client.model.parameters(), lr=client.learning_rate/2,
-                                #                                  momentum=0.9)
                                 client.local_epochs = 1
                                 client.train(create_trigger=True, dba=dba, double=True)
 
                             elif self.dataset == 'svhn':
                                 print("Eraser SVHN DBA")
                                 client.local_epochs = 1
-                                if epoch>40:
-                                    client.train(create_trigger=True, dba=dba, double=True)
-                                else:
-                                    client.train()
+                                client.train(create_trigger=True, dba=dba, double=True)
 
                             dba+=1
 
@@ -255,9 +232,9 @@ class FedEraser(Server):
                                 client.local_epochs = 1
                                 client.train(create_trigger=True,double=True)
                             else:
-                                client.local_epochs = 2
+                                print("FMNIST MODELRE")
+                                client.local_epochs = 1
                                 client.train(create_trigger=True)
-                            # client.train(create_trigger=True)
                         # client.train()
                     else:
                         client.train()
@@ -298,11 +275,9 @@ class FedEraser(Server):
             # self.global_model = copy.deepcopy(self.old_GM)
             # self.send_models()
             # self.evaluate()
-            # if epoch>10:
             self.server_metrics()
             if self.unlearn_attack:
                 self.asr_metrics()
-
 
             # print("new GM after calibration ***:::", self.new_GM.state_dict()['base.conv1.0.weight'][0])
 
@@ -321,14 +296,11 @@ class FedEraser(Server):
         # self.evaluate()
         # self.global_model = self.new_GM
         self.eraser_global_model = copy.deepcopy(self.new_GM)
-        # self.global_model = copy.deepcopy(self.new_GM)
-        # self.save_unlearning_model()
 
         now = time.time()
         print(f"\nSingle unlearning time cost: {round((now-start), 2)}s.\n")
         print(f"\nIO time cost: {round(io_time, 2)}s.\n")
         self.server_metrics()
-        # train_loss, test_acc = self.evaluate()
         # self.eraser_global_model = copy.deepcopy(self.new_GM)
         self.algorithm = "FedEraser"
         self.save_unlearning_model()
