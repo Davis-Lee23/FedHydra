@@ -10,11 +10,9 @@ import time
 import random
 import json
 
-from anyio import sleep_until
-
 from pprint import pprint
 
-from FedHydra.clientBase import clientAVG
+from clientBase import clientAVG
 from dataset_utils import read_client_data
 from serverEraser import FedEraser
 

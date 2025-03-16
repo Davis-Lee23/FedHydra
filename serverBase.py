@@ -11,7 +11,6 @@ from pprint import pprint
 from sympy import false
 from torch.nn.functional import softmax
 import torch.nn.functional as F
-from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 from MIA_utils import ShadowDataset

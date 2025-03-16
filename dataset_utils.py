@@ -8,7 +8,6 @@ import gc
 import torch
 from numpy.array_api import reshape
 from sklearn.model_selection import train_test_split
-from sympy.codegen.ast import continue_
 
 batch_size = 10
 train_size = 0.75 # merge original training set and test set, then split it manually. 

@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
-from sklearn.model_selection import train_test_split
 
 # Assuming att_X and att_y are numpy arrays that you have
 # For demonstration, let's create dummy data similar to att_X and att_y
