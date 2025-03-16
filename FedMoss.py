@@ -15,8 +15,6 @@ import logging
 import os
 import sys
 
-import wandb
-
 from serverEraser import FedEraser
 from serverCrab import Crab
 from serverHydra import FedHydra
