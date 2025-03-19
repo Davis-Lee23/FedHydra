@@ -12,6 +12,8 @@ import json
 
 from pprint import pprint
 
+from torchgen.api.types import doubleT
+
 from clientBase import clientAVG
 from dataset_utils import read_client_data
 from serverEraser import FedEraser
@@ -296,10 +298,10 @@ class Crab(FedEraser):
             if self.auto_break and self.check_done(acc_lss=[self.rs_test_acc], top_cnt=self.top_cnt):
                 break
 
-        print("\nBest accuracy.")
+        # print("\nBest accuracy.")
         # self.print_(max(self.rs_test_acc), max(
         #     self.rs_train_acc), min(self.rs_train_loss))
-        print(max(self.rs_test_acc))
+        # print(max(self.rs_test_acc))
         print("\nAverage time cost per round.")
         print(sum(self.Budget[1:])/len(self.Budget[1:]))
 
@@ -431,12 +433,7 @@ class Crab(FedEraser):
             for  client in self.old_clients:
                 for c in all_clients_class:
                     if client.id == c.id:
-
-                        if self.args.dataset == 'svhn':
-                            client.model = copy.deepcopy(c.model)
-                        else:
-                            client.set_parameters(c.model)
-
+                        client.set_parameters(c.model)
                         # print(" /// ",c.model.state_dict()['base.conv1.0.weight'][0])
                 if client.id in select_clients_in_round:
                     self.old_CM.append(client)
@@ -452,13 +449,17 @@ class Crab(FedEraser):
             dba = 0
             for client in self.old_clients:
                 client.set_parameters(self.old_GM)
-
                 if self.unlearn_attack:
                     if client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'dba':
                         print("DBA Attack First")
-                        client.local_epochs = 1
-                        client.train_one_step(trigger=True,dba=dba)
-                        dba +=1
+                        if self.args.dataset == 'fmnist':
+                            client.local_epochs = 5
+                            client.train(create_trigger=True, dba=dba, double=True)
+                        else:
+                            client.local_epochs = 1
+                            client.train_one_step(trigger=True, dba=dba)
+
+                        dba += 1
 
                     elif client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'lie':
                         print("LIE Attack First")
@@ -467,14 +468,20 @@ class Crab(FedEraser):
                         # client.train_one_step()
 
                     elif client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'modelre':
-                        print("ModelRe Attack First")
                         if self.args.dataset == 'fmnist':
+                            print("ModelRe Attack First")
+                            # client.train_one_step(trigger=True, double=True,local_epoch=client.local_epochs)
+                            client.local_epochs = 5
+                            client.train(create_trigger=True,double =True)
+                            # self.asr_metrics_cleint(client.model)
+                        else:
                             client.local_epochs = 1
-                            client.train(trigger=True,double =True)
-
-
+                            client.train_one_step(trigger=True,double =True)
+                    else:
+                        client.train()
                 else:
-                    client.train_one_step()
+                    # client.train_one_step()
+                    client.train()
                 # client.train_one_step(trigger=False)
 
 
@@ -487,11 +494,11 @@ class Crab(FedEraser):
                 self.aggregation_median(unlearning_stage=True, existing_clients=self.old_clients)
             elif self.args.robust_aggregation_schemes == "Krum":
                 self.aggregation_Krum(unlearning_stage=True, existing_clients=self.old_clients)
-                
+
             self.new_GM = copy.deepcopy(self.global_model)
 
             # print("New_GM before calibration ***:::", self.new_GM.state_dict()['base.conv1.0.weight'][0])
-            
+
             # 得到新的CM
             for client in self.old_clients:
                 dba = 0
@@ -499,8 +506,13 @@ class Crab(FedEraser):
                 if self.unlearn_attack:
                     if client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'dba':
                         print("DBA Attack Second")
-                        client.local_epochs = 1
-                        client.train_one_step(trigger=True,dba=dba)
+                        if self.args.dataset == 'fmnist':
+                            client.local_epochs = 1
+                            client.train(create_trigger=True,dba=dba,double=True)
+                        else:
+                            client.local_epochs = 1
+                            client.train_one_step(trigger=True,dba=dba)
+
                         dba+=1
 
                     elif client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'lie':
@@ -510,18 +522,26 @@ class Crab(FedEraser):
                         # client.train_one_step()
 
                     elif client.id in self.ida_ and global_round > self.args.start_attack_round and self.unlearn_attack_method == 'modelre':
-                        print("ModelRe Attack Second")
                         if self.args.dataset == 'fmnist':
+                            print("ModelRe Attack Second")
                             client.local_epochs = 1
-                            client.train(trigger=True)
+                            client.train(create_trigger=True)
+                            # client.train()
+                            # self.asr_metrics_cleint(client.model)
+                        else:
+                            client.local_epochs = 1
+                            client.train_one_step(trigger=True,double =True)
+
+                    else:
+                        client.train()
 
                 else:
-                    client.train_one_step()
+                    # client.train_one_step()
+                    client.train()
 
                 # client.train_one_step(trigger=False)
 
             self.new_CM = copy.deepcopy(self.old_clients)
-            
             # 开始校准
             self.new_GM = self.unlearning_step_once(self.old_CM, self.new_CM, self.old_GM, self.new_GM)
             self.global_model = copy.deepcopy(self.new_GM)

@@ -7,8 +7,8 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 batch_size = 256
-train_ratio = 0.75  # merge original training set and test set, then split it manually.
-alpha = 0.1  # for Dirichlet distribution. 100 for exdir
+train_ratio = 0.85  # merge original training set and test set, then split it manually.
+alpha = 0.9  # for Dirichlet distribution. 100 for exdir
 
 
 def check(config_path, train_path, test_path, num_clients, niid=False,

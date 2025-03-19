@@ -211,7 +211,14 @@ class Server(object):
 
     def add_parameters(self, w, client_model):
         for server_param, client_param in zip(self.global_model.parameters(), client_model.parameters()):
+            # server_param.data += client_param.data.clone() * w
+
+            # 这两个转移cuda，是给cifar10写的
+            client_param.data = client_param.data.to('cuda')
+            server_param.data = server_param.data.to('cuda')
             server_param.data += client_param.data.clone() * w
+
+
     
     ############################################## Robust Aggregation Methods: Trimmed Mean ##############################################
             
@@ -421,7 +428,12 @@ class Server(object):
         model_path = os.path.join("server_models", self.dataset)
         if not os.path.exists(model_path):
             os.makedirs(model_path)
-        model_path = os.path.join(model_path, self.algorithm+ "_" +self.unlearn_attack_method + "_unlearning" +  ".pt")
+
+        if self.unlearn_attack:
+            model_path = os.path.join(model_path, self.algorithm+ "_" +self.unlearn_attack_method + "_unlearning" +  ".pt")
+        else:
+            model_path = os.path.join(model_path, self.algorithm+  "_unlearning" +  ".pt")
+        print(model_path)
         torch.save(self.eraser_global_model, model_path)
 
 
@@ -485,6 +497,25 @@ class Server(object):
             # print(c.id)
             # print("ASR METRICS CLIENT ID:"+str(c.id))
             casr, cl, ns = c.asr_metrics(self.global_model)
+            num_samples.append(ns)
+            losses.append(cl * 1.0)
+            asr.append(casr)
+
+        result = sum(asr) / sum(num_samples)
+        print(f"Each clients have {ns} samples")
+        print(f"For each clients, the attack success numbers: {asr}")
+        print("ASR:{:.4f}".format(result))
+        return num_samples,losses,asr
+
+    def asr_metrics_cleint(self,model):
+        num_samples = []
+        losses = []
+        asr = []
+        print("\nASR METRICS")
+        for c in self.unlearn_attack_clients:
+            # print(c.id)
+            # print("ASR METRICS CLIENT ID:"+str(c.id))
+            casr, cl, ns = c.asr_metrics(model)
             num_samples.append(ns)
             losses.append(cl * 1.0)
             asr.append(casr)
@@ -821,6 +852,8 @@ class Server(object):
         # idx_ = [9]
         idr_ = [i for i in id_selected_clients if i not in idx_]
         ida_ = random.sample(idr_,self.unlearn_attack_number)
+        if self.dataset == 'fmnist':
+            ida_ = [16,6]
         self.idr_ = idr_ # remain
         self.idx_ = idx_ # target
         self.ida_ = ida_ # unlearn attack

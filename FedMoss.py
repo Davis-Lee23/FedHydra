@@ -27,7 +27,8 @@ from trainmodel.alexnet import *
 from trainmodel.mobilenet_v2 import *
 from trainmodel.transformer import *
 
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+torch.cuda.set_device(0)
 
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
@@ -119,6 +120,7 @@ def run(args):
         elif model_str == "resnet":
             args.model = torchvision.models.resnet18(pretrained=False, num_classes=args.num_classes).to(args.device)
 
+            args.model.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
             # args.model = torchvision.models.resnet18(pretrained=True).to(args.device)
             # feature_dim = list(args.model.fc.parameters())[0].shape[1]
             # args.model.fc = nn.Linear(feature_dim, args.num_classes).to(args.device)
@@ -191,7 +193,7 @@ def run(args):
         else:
             raise NotImplementedError
 
-        print(args.model)
+        # print(args.model)
 
         """
         导入后的args会以当前的args为准，而非历史
@@ -236,9 +238,7 @@ def run(args):
             # exit(-1)
 
             # 在这一步创建了client，赋值了args
-            server = FedEraser(args, i)
-            # select unlearn clients and attack clients
-            server.select_unlearned_clients()
+
             start2 = time.time()
             server = server_back
             server.unlearning(start=start2)
@@ -252,11 +252,11 @@ def run(args):
             # 训练的时候要设置  args.unlearn_attack = F，训练完再改成T
             
             server.select_unlearned_clients()
-            server_back = copy.deepcopy(server)
+            # server_back = copy.deepcopy(server)
 
             # 训练
-            server.train_with_select()
-            exit(-1)
+            # server.train_with_select()
+            # exit(-1)
 
             # 遗忘
             # server.args.unlearn_attack = True
@@ -272,7 +272,7 @@ def run(args):
             with open(info_path, 'rb') as pkl_file:
                 info_storage = pickle.load(pkl_file)
 
-            server = server_back
+            # server = server_back
             # 打印读取的数据
             server.info_storage = info_storage
             server.adaptive_recover(start=start2)
@@ -396,7 +396,7 @@ if __name__ == "__main__":
     parser.add_argument('-dev', "--device", type=str, default="cuda",
                         choices=["cpu", "cuda"])
     parser.add_argument('-did', "--device_id", type=str, default="0")
-    parser.add_argument('-data', "--dataset", type=str, default="svhn")
+    parser.add_argument('-data', "--dataset", type=str, default="cifar10")
     parser.add_argument('-nb', "--num_classes", type=int, default=10)
     parser.add_argument('-m', "--model", type=str, default="cnn")
     parser.add_argument('-lbs', "--batch_size", type=int, default=256)  # -> 256
@@ -404,12 +404,12 @@ if __name__ == "__main__":
                         help="Local learning rate")
     parser.add_argument('-ld', "--learning_rate_decay", type=bool, default=True)
     parser.add_argument('-ldg', "--learning_rate_decay_gamma", type=float, default=0.99)
-    parser.add_argument('-gr', "--global_rounds", type=int, default=50)
+    parser.add_argument('-gr', "--global_rounds", type=int, default=100)
     parser.add_argument('-ls', "--local_epochs", type=int, default=1,
                         help="Multiple update steps in one local epoch.")
     
     # unlearning settings
-    parser.add_argument('-algo', "--algorithm", type=str, default="Crab", choices=["Retrain", "FedEraser","Crab","FedHydra"],
+    parser.add_argument('-algo', "--algorithm", type=str, default="FedEraser", choices=["Retrain", "FedEraser","Crab","FedHydra"],
                         help="How to unlearn the target clients")
     parser.add_argument('-verify', "--verify_unlearn", action='store_true',
                         help="Whether use the MIA to verify the unlearn effectiveness")
@@ -457,7 +457,7 @@ if __name__ == "__main__":
     # ModelRe
     parser.add_argument('-ModelRe', '--modelre', action='store_true',
                     help="")
-    parser.add_argument('-Clip_rate', '--clip_rate', type=float, default=0.5,
+    parser.add_argument('-Clip_rate', '--clip_rate', type=float, default=2,
                     help="")
     parser.add_argument('-alpha', "--alpha_loss", type=float, default=0.8,
                         help="")
@@ -467,7 +467,7 @@ if __name__ == "__main__":
     # DBA
     parser.add_argument('-DBA', '--dba', action='store_true',
                     help="")
-    parser.add_argument('-DBA_Clip_rate', '--dba_clip_rate', type=float, default=0.5,
+    parser.add_argument('-DBA_Clip_rate', '--dba_clip_rate', type=float, default=4,
                     help="")
 
 
@@ -475,7 +475,7 @@ if __name__ == "__main__":
     # backdoor
     parser.add_argument('-backdoor', '--backdoor_attack', action='store_true', 
                     help="Whether to inject backdoor attack towards the target clients")
-    parser.add_argument('-sar', '--start_attack_round', type=int,default=5,
+    parser.add_argument('-sar', '--start_attack_round', type=int,default=20,
                     help="Round of starting attack")
 
     # 有关trigger部分在dataset_utils类里调
@@ -533,27 +533,31 @@ if __name__ == "__main__":
     print("=" * 50)
 
     if args.dataset == 'Cifar10' or args.dataset == 'cifar10':
-        args.local_learning_rate = 0.05
-        args.model = 'cnn'
+        args.local_learning_rate = 0.005
+        args.model = 'resnet'
         args.batch_size = 256
-        args.clip_rate = 1.4
 
     elif args.dataset == 'fmnist':
-        args.local_learning_rate = 0.01
+        args.local_learning_rate = 0.001
         args.model = 'cnn'
         args.batch_size = 256
-        args.clip_rate = 1
 
     elif args.dataset == 'svhn':
         args.local_learning_rate = 0.01
         args.model = 'mobilenet_v2'
         args.batch_size = 256
-        args.clip_rate = 1.1
+
+    elif args.dataset == 'mnist':
+        args.local_learning_rate = 0.001
+        args.model = 'mlr'
+        args.batch_size = 256
+
 
     path = os.path.abspath(os.path.dirname(__file__))
     type = sys.getfilesystemencoding()
-    log_path = ".\log_testfull\\"+args.dataset+"_"+args.algorithm+"_"+args.unlearn_attack_method +".log"
-    log_path = ".\log_normal\\"+args.dataset+"_"+args.algorithm+".log"
+    log_path = ".\\log_testfull\\"+args.dataset+"_"+args.algorithm+"_"+args.unlearn_attack_method +".log"
+    log_path = "./log_normal/"+args.dataset+"_"+args.algorithm+".log"
+    # log_path = "./log_attack/"+args.dataset+"_"+args.algorithm+"_"+args.unlearn_attack_method +".log"
     sys.stdout = Logger(log_path)
     print(datetime.datetime.now())
     print("=" * 50)

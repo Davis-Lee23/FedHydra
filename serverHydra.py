@@ -182,13 +182,8 @@ class FedHydra(Server):
 
         for epoch in range(0, self.global_rounds+1, 2):
             # print("\n")
-            # self.evaluate()
-
             # epoch=self.global_rounds 这一段和下面的用来测试模型到底有没有成功导入，经测试OK
             # epoch = self.global_rounds
-
-            # Hydra和Eraser用的model是一样的
-            # self.algorithm = "FedEraser"
             temp_time1 = time.time()
 
             server_path = os.path.join(model_path, self.algorithm + "_epoch_" + str(epoch) + ".pt")
@@ -251,11 +246,11 @@ class FedHydra(Server):
                     c.local_epochs *= 1
                 continue
 
-
             print(f"\n-------------FedHydra Round number: {epoch}-------------")
             assert (len(self.remaining_clients) > 0)
-
             dba = 0
+            torch.cuda.empty_cache()
+            # print("1:{}".format(torch.cuda.memory_allocated(0)))
             # 得到新的CM，进行一步训练
             for client in self.remaining_clients:
                 client.set_parameters(self.new_GM)
@@ -307,7 +302,6 @@ class FedHydra(Server):
                                 client.train(create_trigger=True)
                     else:
                         client.train()
-
                 else:
                     client.train()
 
@@ -318,8 +312,9 @@ class FedHydra(Server):
             """
             old_client_models = copy.deepcopy(self.old_CM)
             new_client_models = copy.deepcopy(self.new_CM)
-
             similarity_scores = []
+            print("Cosine Similarity")
+            # print("2:{}".format(torch.cuda.memory_allocated(0)))
 
             for i in range(len(old_client_models)):
                 # print(old_client_models[i].id)
@@ -365,8 +360,10 @@ class FedHydra(Server):
             # 聚合,在此处global_model被修改了
             if self.args.robust_aggregation_schemes == "FedAvg":
                 # 这里receive了new_CM而不是remaining，代表已经过滤
+                # print("3:{}".format(torch.cuda.memory_allocated(0)))
                 self.receive_retrained_models(self.new_CM)
                 # self.aggregate_parameters()
+                # print("4:{}".format(torch.cuda.memory_allocated(0)))
                 self.aggregate_heads()
                 # exit(-1)
             elif self.args.robust_aggregation_schemes == "TrimmedMean":
@@ -383,12 +380,15 @@ class FedHydra(Server):
             # print("New_GM before calibration ***:::", self.new_GM.state_dict()['base.conv1.0.weight'][0])
 
             # 开始校准
+            # print("5:{}".format(torch.cuda.memory_allocated(0)))
             self.new_GM = self.unlearning_step_once_Hydra(self.old_CM, self.new_CM, self.old_GM, self.new_GM)
+
             # print("new GM after calibration ***:::", self.new_GM.state_dict()['base.conv1.0.weight'][0])
             self.global_model = copy.deepcopy(self.new_GM)
             # self.send_models()
             self.server_metrics()
-            if self.unlearn_attack:
+            # print("6:{}".format(torch.cuda.memory_allocated(0)))
+            if self.unlearn_attack and epoch > self.args.start_attack_round:
                 self.asr_metrics()
             # exit(-1)
 

@@ -145,6 +145,8 @@ class FedEraser(Server):
             self.old_CM = copy.deepcopy(self.remaining_clients)
 
             print(f"\n-------------FedEraser Round number: {epoch}-------------")
+            torch.cuda.empty_cache()
+
             print(server_path)
             # 产生第一次的new_GM
             if epoch == 0:
@@ -188,7 +190,6 @@ class FedEraser(Server):
                 client.set_parameters(self.new_GM)
 
                 if self.unlearn_attack:
-
                     if client.id in self.ida_ and epoch>self.args.start_attack_round:
                         # print("Client "+ str(client.id)+" is attacking.")
                         if self.unlearn_attack_method == 'lie':
@@ -208,9 +209,11 @@ class FedEraser(Server):
 
                         elif  self.unlearn_attack_method == 'dba':
                             if self.dataset == 'fmnist':
+                                print("ERASER FMNIST DBA")
                                 client.local_epochs = 1
-                                client.train(create_trigger=True, dba=dba)
+                                client.train(create_trigger=True, dba=dba,double=True)
                             elif self.dataset == 'cifar10':
+                                print("ERASER CIFAR DBA")
                                 client.local_epochs = 1
                                 client.train(create_trigger=True, dba=dba, double=True)
 
@@ -221,19 +224,21 @@ class FedEraser(Server):
 
                             dba+=1
 
-                        else:
-                            if self.unlearn_attack_method=='modelre' and self.dataset == 'svhn':
+                        elif self.unlearn_attack_method == 'modelre':
+                            if  self.dataset == 'svhn':
                                 print("SVHN MODELRE")
                                 client.local_epochs = 1
                                 client.train(create_trigger=True,double=True)
-                            elif self.unlearn_attack_method=='modelre' and self.dataset == 'cifar10':
+                            elif  self.dataset == 'cifar10':
                                 print("CIFAR MODELRE")
                                 client.local_epochs = 1
                                 client.train(create_trigger=True,double=True)
                             else:
                                 print("FMNIST MODELRE")
                                 client.local_epochs = 1
-                                client.train(create_trigger=True)
+                                client.train(create_trigger=True,double=True)
+                        else:
+                            client.train()
                         # client.train()
                     else:
                         client.train()
@@ -243,7 +248,7 @@ class FedEraser(Server):
 
 
             # 获得训练之后的新client
-            self.new_CM = copy.deepcopy(self.remaining_clients)
+            # self.new_CM = copy.deepcopy(self.remaining_clients)
             
             # 聚合一次
             if self.args.robust_aggregation_schemes == "FedAvg":
@@ -268,14 +273,15 @@ class FedEraser(Server):
 
             # 校准，此时newGM和全局模型已经不一样了
             self.algorithm = 'FedEraser'
-            self.new_GM = self.unlearning_step_once(self.old_CM, self.new_CM, self.old_GM, self.new_GM)
+            # self.new_GM = self.unlearning_step_once(self.old_CM, self.new_CM, self.old_GM, self.new_GM)
+            self.new_GM = self.unlearning_step_once(self.old_CM, self.remaining_clients, self.old_GM, self.new_GM)
             self.algorithm = 'Crab'
             self.global_model = copy.deepcopy(self.new_GM)
             # self.global_model = copy.deepcopy(self.old_GM)
             # self.send_models()
             # self.evaluate()
             self.server_metrics()
-            if self.unlearn_attack:
+            if self.unlearn_attack and epoch>self.args.start_attack_round:
                 self.asr_metrics()
 
             # print("new GM after calibration ***:::", self.new_GM.state_dict()['base.conv1.0.weight'][0])
@@ -350,13 +356,19 @@ class FedEraser(Server):
             return_model_state[layer] = 0*global_model_before_forget.state_dict()[layer]
             
             for ii in range(len(new_client_models)):
+                old_param_update[layer] = old_param_update[layer].to('cuda')
+                new_param_update[layer] =new_param_update[layer].to('cuda')
                 old_param_update[layer] += old_client_models[ii].model.state_dict()[layer]
                 new_param_update[layer] += new_client_models[ii].model.state_dict()[layer]
 
             old_param_update[layer] = old_param_update[layer] / (ii+1) #Model Params： oldCM
             new_param_update[layer] = new_param_update[layer] / (ii+1) #Model Params： newCM
 
-            
+            global_model_before_forget = global_model_before_forget.to('cuda')
+            global_model_after_forget = global_model_after_forget.to('cuda')
+            old_param_update[layer] = old_param_update[layer].to('cuda')
+            new_param_update[layer] = new_param_update[layer].to('cuda')
+
             old_param_update[layer] = old_param_update[layer] - global_model_before_forget.state_dict()[layer]#参数： oldCM - oldGM_t
             new_param_update[layer] = new_param_update[layer] - global_model_after_forget.state_dict()[layer]#参数： newCM - newGM_t
 
@@ -388,7 +400,6 @@ class FedEraser(Server):
                 # print(step_length)
                 # print(step_direction)
                 # print(step_length * step_direction)
-
         
         # print("....", step_length, step_direction)
         # print(return_model_state)

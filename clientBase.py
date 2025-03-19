@@ -60,9 +60,9 @@ class Client(object):
         self.loss = nn.CrossEntropyLoss()
 
         # if self.dataset != 'cifar10':
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, momentum=0.9)
+        # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, momentum=0.9)
         # else:
-        #     self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
         # if self.dataset[:2] == "ag":
         # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.learning_rate_scheduler = torch.optim.lr_scheduler.ExponentialLR(
@@ -682,6 +682,10 @@ class clientAVG(Client):
 
             # 正常训练
             else:
+                # print(self.id)
+                # print(self.local_epochs)
+                # start = time.time()
+                # print("训练前:{}".format(torch.cuda.memory_allocated(0)))
                 for i, (x, y) in enumerate(trainloader):
                     if type(x) == type([]):
                         x[0] = x[0].to(self.device)
@@ -695,6 +699,9 @@ class clientAVG(Client):
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
+                #
+                # end = time.time()
+                # print(end-start)
                 
 
         # self.model.cpu()
@@ -710,8 +717,8 @@ class clientAVG(Client):
             self.model = self.trim_weights()
         
         
-    def train_one_step(self,trigger=False,local_epoch=1,dba = None):
-        trainloader = self.load_train_data(create_trigger=trigger,dba =dba)
+    def train_one_step(self,trigger=False,local_epoch=1,dba = None,double=None):
+        trainloader = self.load_train_data(create_trigger=trigger,dba =dba,double=double)
         self.model.train()
         # if dba is not None:
         #     self.visualize_images(trainloader,5)
